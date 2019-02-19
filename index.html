@@ -128,7 +128,7 @@ function showData() {
   drawMap(store.geoJSON)
 
   //websocket
-  let ws = new WebSocket("ws://35.192.78.48:10001/")
+  let ws = new WebSocket("wss://nycpulsewall.tk/stream")
 
   ws.onmessage = function (e) {
     tweet = JSON.parse(e.data)

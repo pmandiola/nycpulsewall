@@ -87,12 +87,17 @@ class MyStreamListener(tweepy.StreamListener):
 stream_listener = MyStreamListener()
 
 def app(environ, start_response):
-    ws = environ['wsgi.websocket']
-    stream_listener.add_socket(ws)
-    while not ws.closed:
-        gevent.sleep(0.1)
+    
+    if (type(environ) is dict) and ('wsgi.websocket' in environ):     
+        ws = environ['wsgi.websocket']
+        stream_listener.add_socket(ws)
+        while not ws.closed:
+            gevent.sleep(0.1)
+        else:
+            stream_listener.remove_socket(ws)
     else:
-        stream_listener.remove_socket(ws)
+        start_response('200 OK', [('Content-Type', 'text/html')])
+        return [b"<b>alive!</b>"]
 
 server = pywsgi.WSGIServer(('', 10001), app, handler_class=WebSocketHandler)
 server.serve_forever()

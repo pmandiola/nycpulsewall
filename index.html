@@ -123,21 +123,38 @@ function drawTweets() {
     		.attr("fill", d => cScale(d.polarity))
 }
 
-function showData() {
-
-  drawMap(store.geoJSON)
+function startWebSocket(){
 
   //websocket
-  let ws = new WebSocket("wss://nycpulsewall.tk/stream")
+  let ws = new WebSocket("wss://nycpulsewall.pmandiola.com/stream")
+
+  ws.onopen = function(e) {
+
+    console.log('CONNECTION OPEN')
+  }
+
+  ws.onclose = function(e) {
+
+    console.log('CONNECTION CLOSED')
+  }
 
   ws.onmessage = function (e) {
+
     tweet = JSON.parse(e.data)
 
     let exact = tweet.coordinates == null ? 'Place ('+tweet.place.full_name+')' : 'Exact'
     console.log(exact + '|' +tweet.polarity + "|" + tweet.text)
     store.tweets.push(tweet);
     drawTweets();
+
   };
+}
+
+function showData() {
+
+  drawMap(store.geoJSON)
+
+  startWebSocket()
 }
 
 loadData().then(showData);

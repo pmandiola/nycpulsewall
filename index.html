@@ -105,9 +105,6 @@ function drawTweets() {
     let projection = getMapProjection(config)
     let container = config.container
 
-    let path = d3.geoPath()
-        .projection(projection)
-
     let cScale = d3.scaleLinear()
         .domain([-1,0,1])
         .range(['red','yellow','green'])
@@ -126,7 +123,7 @@ function drawTweets() {
 function startWebSocket(){
 
   //websocket
-  let ws = new WebSocket("wss://nycpulsewall.pmandiola.com/stream")
+  let ws = new WebSocket("ws://nyuvis-db.poly.edu:15300")
 
   ws.onopen = function(e) {
 
@@ -136,6 +133,7 @@ function startWebSocket(){
   ws.onclose = function(e) {
 
     console.log('CONNECTION CLOSED')
+    startWebSocket()
   }
 
   ws.onmessage = function (e) {

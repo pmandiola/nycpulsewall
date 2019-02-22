@@ -123,7 +123,7 @@ function drawTweets() {
 function startWebSocket(){
 
   //websocket
-  let ws = new WebSocket("ws://nyuvis-db.poly.edu:15300")
+  let ws = new WebSocket("wss://nycpulsewall.pmandiola.com/stream")
 
   ws.onopen = function(e) {
 

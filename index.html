@@ -87,16 +87,17 @@ function getCoordinates(tweet){
   if (tweet.coordinates)
     return tweet.coordinates.coordinates
   else {
-    let x = 0
-    let y = 0
     let coordinates = tweet.place.bounding_box.coordinates[0]
 
-    for (let i = 0; i < coordinates.length; i++) {
-      x += coordinates[i][0]
-      y += coordinates[i][1]
-    }
+    let minx = d3.min(coordinates, d => d[0])
+    let maxx = d3.max(coordinates, d => d[0])
+    let miny = d3.min(coordinates, d => d[1])
+    let maxy = d3.max(coordinates, d => d[1])
 
-    return [x/coordinates.length, y/coordinates.length]
+    let x = Math.random() * (maxx - minx) + minx;
+    let y = Math.random() * (maxy - miny) + miny;
+
+    return [x, y]
   }
 }
 
@@ -116,14 +117,15 @@ function drawTweets() {
     		.attr("cx", d => projection(getCoordinates(d))[0] )
     		.attr("cy", d => projection(getCoordinates(d))[1] )
         .transition()
-    		.attr("r", "4px")
+    		.attr("r", "2px")
     		.attr("fill", d => cScale(d.polarity))
+        .attr("fill-opacity","0.8")
 }
 
 function startWebSocket(){
 
   //websocket
-  let ws = new WebSocket("wss://nycpulsewall.pmandiola.com/stream")
+  let ws = new WebSocket("ws://nycpulsewall.pmandiola.com:10001")
 
   ws.onopen = function(e) {
 

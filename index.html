@@ -116,10 +116,14 @@ function drawTweets() {
     		.append("circle")
     		.attr("cx", d => projection(getCoordinates(d))[0] )
     		.attr("cy", d => projection(getCoordinates(d))[1] )
-        .transition()
-    		.attr("r", "2px")
     		.attr("fill", d => cScale(d.polarity))
-        .attr("fill-opacity","0.8")
+        .attr("r", "2px")
+        .transition()
+        .duration(50)
+    		.attr("r", "20px")
+        .transition()
+        .duration(1000)
+    		.attr("r", "2px")
 }
 
 function startWebSocket(){

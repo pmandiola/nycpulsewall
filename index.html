@@ -114,8 +114,8 @@ function drawTweets() {
     container.selectAll("circle")
     		.data(store.tweets).enter()
     		.append("circle")
-    		.attr("cx", d => projection(getCoordinates(d))[0] )
-    		.attr("cy", d => projection(getCoordinates(d))[1] )
+    		.attr("cx", d => projection(d.coordinates.coordinates)[0] )
+    		.attr("cy", d => projection(d.coordinates.coordinates)[1] )
     		.attr("fill", d => cScale(d.polarity))
         .attr("r", "2px")
         .transition()
@@ -146,8 +146,8 @@ function startWebSocket(){
 
     tweet = JSON.parse(e.data)
 
-    let exact = tweet.coordinates == null ? 'Place ('+tweet.place.full_name+')' : 'Exact'
-    console.log(exact + '|' +tweet.polarity + "|" + tweet.text)
+    let coords = tweet.coords_source == 'Randomized' ? 'Randomized ('+tweet.place.full_name+')' : 'Origin'
+    console.log(coords + '|' +tweet.polarity + "|" + tweet.text)
     store.tweets.push(tweet);
     drawTweets();
 

@@ -170,7 +170,7 @@ class MyStreamListener(tweepy.StreamListener):
 
             #Filter tweet data to send only what we need
             filtered_keys = ['created_at', 
-                                'id',
+                                'id_str',
                                 'text',
                                 'coordinates',
                                 'place',
@@ -178,8 +178,9 @@ class MyStreamListener(tweepy.StreamListener):
                                 'lang',
                                 'source',
                                 'polarity',
-                                'borough']
-            filtered = { key: decoded[key] for key in filtered_keys }
+                                'borough',
+                                'coords_source']
+            filtered = { key: decoded.get(key,None) for key in filtered_keys }
 
             #Send tweet to connected sockets
             for ws in self.sockets:

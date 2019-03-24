@@ -10,7 +10,7 @@
         padding: 5px;
     }
 
-    svg {
+    svg, canvas {
       border: solid 1px #000000;
     }
 
@@ -21,146 +21,164 @@
 
 <script src="https://d3js.org/d3.v5.min.js"></script>
 <script src="https://unpkg.com/d3-tile@0.0.4/build/d3-tile.min.js"></script>
+<script src="lib/simpleheat.js"></script>
 
 <body>
 <h1>NYC Live Tweets</h1>
 <div class="mainView">
-    <div>
+    <div style="position: relative;">
         <svg id="Map"></svg>
+        <canvas id="HeatMap" width="600" height="600" style="position: absolute; top: 0px;"></canvas>
+        <svg id="Points" width="600" height="600" style="position: absolute; top: 0px;"></svg>
     </div>
 </div>
 </body>
 
 <script>
 
-let store = {}
-store.tweets = []
+  let store = {}
+  let storeDispatcher = d3.dispatch("update");
 
-function loadData() {
-    let promise = d3.json("nyc-zipcode-tabulation-areas.geojson")
-    return promise.then(data => {
-        store.geoJSON = data
-        return store;
-    })
-}
-
-function getMapConfig(){
-  let width = 600;
-  let height = 600;
-  let container = d3.select('#Map')
-  container
-      .attr("width", width)
-      .attr("height", height)
-  return {width, height, container}
-}
-
-function getMapProjection(config) {
-  let {width, height} = config;
-  let projection = d3.geoMercator()
-  projection.scale(50000)
-            .center([-73.94, 40.70])
-            .translate([width / 2 + 20, height / 2])
-
-  store.mapProjection = projection;
-  return projection;
-}
-
-function drawMap(geoJson) {
-    let config = getMapConfig();
-    let projection = getMapProjection(config)
-    let container = config.container
-
-    let path = d3.geoPath()
-        .projection(projection)
-
-    container.selectAll("path").data(geoJson.features)
-        .enter().append("path")
-        .attr("d", d => path(d))
-        .attr("fill", "grey")
-        .attr("stroke", "black")
-        .style("fill-opacity", 0.5)
-        .style("stroke-opacity", 0)
-}
-
-function getCoordinates(tweet){
-
-  if (tweet.coordinates)
-    return tweet.coordinates.coordinates
-  else {
-    let coordinates = tweet.place.bounding_box.coordinates[0]
-
-    let minx = d3.min(coordinates, d => d[0])
-    let maxx = d3.max(coordinates, d => d[0])
-    let miny = d3.min(coordinates, d => d[1])
-    let maxy = d3.max(coordinates, d => d[1])
-
-    let x = Math.random() * (maxx - minx) + minx;
-    let y = Math.random() * (maxy - miny) + miny;
-
-    return [x, y]
-  }
-}
-
-function drawTweets() {
-    let config = getMapConfig();
-    let projection = getMapProjection(config)
-    let container = config.container
-
-    let cScale = d3.scaleLinear()
-        .domain([-1,0,1])
-        .range(['red','yellow','green'])
-
-    // add circles to svg
-    container.selectAll("circle")
-    		.data(store.tweets).enter()
-    		.append("circle")
-    		.attr("cx", d => projection(d.coordinates.coordinates)[0] )
-    		.attr("cy", d => projection(d.coordinates.coordinates)[1] )
-    		.attr("fill", d => cScale(d.polarity))
-        .attr("r", "2px")
-        .transition()
-        .duration(50)
-    		.attr("r", "20px")
-        .transition()
-        .duration(1000)
-    		.attr("r", "2px")
-}
-
-function startWebSocket(){
-
-  //websocket
-  let ws = new WebSocket("ws://nycpulsewall.pmandiola.com:10001")
-
-  ws.onopen = function(e) {
-
-    console.log('CONNECTION OPEN')
+  function setState(state) {
+      store = { ...store, ...state };
+      storeDispatcher.call("update", store);
   }
 
-  ws.onclose = function(e) {
-
-    console.log('CONNECTION CLOSED')
-    startWebSocket()
+  function getMapConfig(){
+    let width = 600;
+    let height = 600;
+    let container = d3.select('#Map')
+    container
+        .attr("width", width)
+        .attr("height", height)
+    return {width, height, container}
   }
 
-  ws.onmessage = function (e) {
+  function getMapProjection(config) {
+    let {width, height} = config;
+    let projection = d3.geoMercator()
+    projection.scale(57000)
+              .center([-73.959, 40.705])
+              .translate([width / 2 + 20, height / 2])
 
-    tweet = JSON.parse(e.data)
+    store.mapProjection = projection;
+    return projection;
+  }
 
-    let coords = tweet.coords_source == 'Randomized' ? 'Randomized ('+tweet.place.full_name+')' : 'Origin'
-    console.log(coords + '|' +tweet.polarity + "|" + tweet.text)
-    store.tweets.push(tweet);
-    drawTweets();
+  function drawMap(geoJson) {
+      let config = getMapConfig();
+      let projection = getMapProjection(config)
+      let container = config.container
 
-  };
-}
+      let path = d3.geoPath()
+          .projection(projection)
 
-function showData() {
+      container.selectAll("path").data(geoJson.features)
+          .enter().append("path")
+          .attr("d", d => path(d))
+          .attr("fill", "grey")
+          .attr("stroke", "black")
+          .style("fill-opacity", 0.5)
+          .style("stroke-opacity", 0)
 
-  drawMap(store.geoJSON)
+      return projection;
+  }
 
-  startWebSocket()
-}
+  function getCoordinates(tweet){
 
-loadData().then(showData);
+    if (tweet.coordinates)
+      return tweet.coordinates.coordinates
+    else {
+      let coordinates = tweet.place.bounding_box.coordinates[0]
+
+      let minx = d3.min(coordinates, d => d[0])
+      let maxx = d3.max(coordinates, d => d[0])
+      let miny = d3.min(coordinates, d => d[1])
+      let maxy = d3.max(coordinates, d => d[1])
+
+      let x = Math.random() * (maxx - minx) + minx;
+      let y = Math.random() * (maxy - miny) + miny;
+
+      return [x, y]
+    }
+  }
+
+  function drawTweets() {
+      let config = getMapConfig();
+      let projection = getMapProjection(config)
+      let container = d3.select('#Points')
+
+      let cScale = d3.scaleLinear()
+          .domain([-1,0,1])
+          .range(['red','yellow','green'])
+
+      // add circles to svg
+      container.selectAll("circle")
+          .data(store.tweets).enter()
+          .append("circle")
+          .attr("cx", d => projection(d.coordinates.coordinates)[0] )
+          .attr("cy", d => projection(d.coordinates.coordinates)[1] )
+          .attr("fill", d => cScale(d.polarity))
+          .attr("r", "2px")
+          .transition()
+          .duration(50)
+          .attr("r", "20px")
+          .transition()
+          .duration(1000)
+          .attr("r", "0px")
+  }
+
+  function startWebSocket(){
+
+    //websocket
+    let ws = new WebSocket("ws://nycpulsewall.pmandiola.com:10001")
+
+    ws.onopen = function(e) {
+
+      console.log('CONNECTION OPEN')
+    }
+
+    ws.onclose = function(e) {
+
+      console.log('CONNECTION CLOSED')
+      startWebSocket()
+    }
+
+    ws.onmessage = function (e) {
+
+      let newTweet = JSON.parse(e.data)
+
+      let coords = newTweet.coords_source == 'Randomized' ? 'Randomized ('+newTweet.place.full_name+')' : 'Origin'
+      console.log(coords + '|' +newTweet.polarity + "|" + newTweet.text)
+
+      setState({ tweets: [...store.tweets, newTweet] })
+    };
+  }
+
+  (async function App() {
+      store.tweets = []
+
+      let data = await d3.json("nyc-zipcode-tabulation-areas.geojson")
+      store.geoJSON = data
+
+      const projection = drawMap(store.geoJSON)
+
+      const heatMap = simpleheat('HeatMap')
+                          .max(20)
+                          .radius(2)
+
+      storeDispatcher.on("update", () => {
+          const { tweets } = store;
+            
+          heatMap.add(projection(tweets.slice(-1)[0].coordinates.coordinates))
+
+          heatMap.draw()
+
+
+          drawTweets();
+      });
+
+      startWebSocket()
+  })();
 
 </script>

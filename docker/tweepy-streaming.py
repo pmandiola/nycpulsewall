@@ -12,6 +12,8 @@ from gevent import pywsgi
 import tweepy
 from textblob import TextBlob
 import json
+from datetime import datetime
+from pytz import timezone
 
 import random
 from shapely.geometry import shape, mapping, Point
@@ -108,18 +110,19 @@ class MyStreamListener(tweepy.StreamListener):
         auth.set_access_token(TWITTER_TOKEN, TWITTER_TOKEN_SECRET)
         self.api = tweepy.API(auth)
         self.stream = tweepy.Stream(self.api.auth, self)
+        self.start()
 
     def add_socket(self, ws):
         self.sockets.append(ws)
 
-        if (not self.stream.running):
-            self.start()
+        # if (not self.stream.running):
+        #     self.start()
 
     def remove_socket(self, ws):
         self.sockets.remove(ws)
 
-        if (len(self.sockets) == 0):
-            self.stop()
+        # if (len(self.sockets) == 0):
+        #     self.stop()
 
     def run(self):
         print("Run")
@@ -143,23 +146,50 @@ class MyStreamListener(tweepy.StreamListener):
             ws.send(json.dumps(data))
         except Exception as e:
             print("Exception", str(e))
-            # the web socket die..
+            # the web socket died..
             self.remove_socket(ws)
 
     def on_data(self, data):
 
         decoded = json.loads(data)
         
+        #Process coordinates
         decoded = process_coordinates(decoded)
         if (decoded['coords_source']):
             print(decoded['text'])
 
+            #Sentiment analysis
             analysis = TextBlob(decoded['text'])
-
             decoded['polarity'] = analysis.sentiment[0]
+            
+            #Transform created_at to local time
+            fmt = '%a %b %d %H:%M:%S %z %Y'
+            created_at = datetime.strptime(decoded['created_at'], fmt)
+            created_at = created_at.astimezone(timezone('US/Eastern'))
+            decoded['created_at'] = created_at.strftime(fmt)
 
+            #Filter tweet data to send only what we need
+            filtered_keys = ['created_at', 
+                                'id',
+                                'text',
+                                'coordinates',
+                                'place',
+                                'entities',
+                                'lang',
+                                'source',
+                                'polarity',
+                                'borough']
+            filtered = { key: decoded[key] for key in filtered_keys }
+
+            #Send tweet to connected sockets
             for ws in self.sockets:
-                gevent.spawn(self.send, ws, decoded)
+                gevent.spawn(self.send, ws, filtered)
+
+            #Save tweet to file
+            fileName = 'tweets_' + created_at.strftime('%Y-%m-%d') + '.json'
+            with open('/data/' + fileName, 'a+') as tf:
+                json.dump(decoded, tf)
+                tf.write('\n')
         else:
             print('DISCARDED: {} not in NYC'.format(decoded['place']['full_name']))
         return True

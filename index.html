@@ -148,8 +148,8 @@
 
       let newTweet = JSON.parse(e.data)
 
-      let coords = newTweet.coords_source == 'Randomized' ? 'Randomized ('+newTweet.place.full_name+')' : 'Origin'
-      console.log(coords + '|' +newTweet.polarity + "|" + newTweet.text)
+      let coords_source = newTweet.coords_source +' ('+newTweet.place.full_name+')'
+      console.log(coords_source + '|' +newTweet.polarity + "|" + newTweet.text)
 
       setState({ tweets: [...store.tweets, newTweet] })
     };
@@ -165,14 +165,14 @@
 
       const heatMap = simpleheat('HeatMap')
                           .max(20)
-                          .radius(2)
+                          .radius(1)
 
       storeDispatcher.on("update", () => {
           const { tweets } = store;
             
           heatMap.add(projection(tweets.slice(-1)[0].coordinates.coordinates))
 
-          heatMap.draw()
+          heatMap.draw(0.02)
 
 
           drawTweets();

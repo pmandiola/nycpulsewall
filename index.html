@@ -165,7 +165,7 @@
 
       const heatMap = simpleheat('HeatMap')
                           .max(20)
-                          .radius(1)
+                          .radius(1,0.5)
 
       storeDispatcher.on("update", () => {
           const { tweets } = store;

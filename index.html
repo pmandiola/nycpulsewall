@@ -38,10 +38,13 @@
 
   let store = {}
   let storeDispatcher = d3.dispatch("update");
+  store.initialized = false
+  let heatMap = simpleheat('HeatMap')
 
-  function setState(state) {
+  function setState(state, update=True) {
       store = { ...store, ...state };
-      storeDispatcher.call("update", store);
+
+      if (update) storeDispatcher.call("update", store);
   }
 
   function getMapConfig(){
@@ -148,10 +151,12 @@
 
       let newTweet = JSON.parse(e.data)
 
+      let historical = (newTweet['historical'] === true)
+
       let coords_source = newTweet.coords_source +' ('+newTweet.place.full_name+')'
       console.log(coords_source + '|' +newTweet.polarity + "|" + newTweet.text)
 
-      setState({ tweets: [...store.tweets, newTweet] })
+      setState({ tweets: [...store.tweets, newTweet] }, !historical)
     };
   }
 
@@ -163,14 +168,21 @@
 
       const projection = drawMap(store.geoJSON)
 
-      const heatMap = simpleheat('HeatMap')
-                          .max(20)
-                          .radius(0.5,6)
+      //const heatMap = simpleheat('HeatMap')
+
 
       storeDispatcher.on("update", () => {
           const { tweets } = store;
-            
-          heatMap.add(projection(tweets.slice(-1)[0].coordinates.coordinates))
+
+          if (store.initialized) {
+
+            heatMap.add(projection(tweets.slice(-1)[0].coordinates.coordinates))
+          }
+          else {
+
+            heatMap.data(tweets.filter(d => d.coords_source == 'Origin').map(d => projection(d.coordinates.coordinates)))
+                    .radius(1,5)
+          }
 
           heatMap.draw(0.05)
 

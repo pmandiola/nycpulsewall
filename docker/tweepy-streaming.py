@@ -150,30 +150,55 @@ class NYCStreamListener(tweepy.StreamListener):
 
     def initialize_socket(self, ws, days):
 
-        now = datetime.now()
-        for d in range(days, -1, -1):
-            date = datetime.strftime(now - timedelta(d), '%Y-%m-%d')
-            fileName = 'tweets_' + date + '.json'
+        # now = datetime.now()
+        # for d in range(days, -1, -1):
+        #     date = datetime.strftime(now - timedelta(d), '%Y-%m-%d')
+        #     fileName = 'tweets_' + date + '.json'
 
-            if(os.path.isfile('/data/' + fileName)):
-                print('Sending ' + fileName)
-                with open('/data/' + fileName, 'r') as tf:
+        #     if(os.path.isfile('/data/' + fileName)):
+        #         print('Sending ' + fileName)
+        #         with open('/data/' + fileName, 'r') as tf:
 
-                    for line in tf:
-                        decoded = json.loads(line)
+        #             for line in tf:
+        #                 decoded = json.loads(line)
 
-                        # Don't send tweets before current time only the first day
-                        created_at = datetime.strptime(decoded['created_at'], self.date_fmt)
-                        if (days == d) & (created_at.time() > now.time()):
-                            continue
+        #                 # Don't send tweets before current time only the first day
+        #                 created_at = datetime.strptime(decoded['created_at'], self.date_fmt)
+        #                 if (days == d) & (created_at.time() > now.time()):
+        #                     continue
                         
-                        # Filter tweet data to send only what we need
-                        filtered = {key: decoded.get(key, None)
-                                    for key in self.filtered_keys}
-                        filtered['historical'] = True
+        #                 # Filter tweet data to send only what we need
+        #                 filtered = {key: decoded.get(key, None)
+        #                             for key in self.filtered_keys}
+        #                 filtered['historical'] = True
 
-                        # Send tweet to socket
-                        ws.send(json.dumps(filtered))
+        #                 # Send tweet to socket
+        #                 ws.send(json.dumps(filtered))
+        
+        now = datetime.now()
+        hour_before = (now - timedelta(hours=1)).astimezone(timezone('US/Eastern'))
+        date = datetime.strftime(now, '%Y-%m-%d')
+        fileName = 'tweets_' + date + '.json'
+
+        if(os.path.isfile('/data/' + fileName)):
+            print('Sending ' + fileName)
+            with open('/data/' + fileName, 'r') as tf:
+
+                for line in tf:
+                    decoded = json.loads(line)
+
+                    # Only send last hour
+                    created_at = datetime.strptime(decoded['created_at'], self.date_fmt)
+                    if created_at < hour_before:
+                        continue
+                    
+                    # Filter tweet data to send only what we need
+                    filtered = {key: decoded.get(key, None)
+                                for key in self.filtered_keys}
+                    filtered['historical'] = True
+
+                    # Send tweet to socket
+                    ws.send(json.dumps(filtered))
         
         self.add_socket(ws)
 
@@ -312,7 +337,7 @@ def app(environ, start_response):
 
     if (type(environ) is dict) and ('wsgi.websocket' in environ):
         ws = environ['wsgi.websocket']
-        days = min(int(environ['QUERY_STRING']) if environ['QUERY_STRING'] else 1, 7)
+        days = min(int(environ['QUERY_STRING']) if environ['QUERY_STRING'] else 0, 7)
         stream_listener.initialize_socket(ws, days)
         while not ws.closed:
             gevent.sleep(0.1)

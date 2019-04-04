@@ -22,6 +22,7 @@
 <script src="https://d3js.org/d3.v5.min.js"></script>
 <script src="https://unpkg.com/d3-tile@0.0.4/build/d3-tile.min.js"></script>
 <script src="lib/simpleheat.js"></script>
+<script src="lib/crossfilter.min.js"></script>
 
 <body>
 <h1>NYC Live Tweets</h1>
@@ -42,9 +43,15 @@
   let heatMap = simpleheat('HeatMap')
 
   function setState(state, update=True) {
-      store = { ...store, ...state };
+    store = { ...store, ...state };
 
-      if (update) storeDispatcher.call("update", store);
+    if (update) storeDispatcher.call("update", store);
+  }
+
+  function addTweet(newTweet, update=True) {
+    store.tweets.add([newTweet])
+
+    if (update) storeDispatcher.call("update", store);
   }
 
   function getMapConfig(){
@@ -117,7 +124,7 @@
 
       // add circles to svg
       container.selectAll("circle")
-          .data(store.tweets).enter()
+          .data(store.tweets.allFiltered()).enter()
           .append("circle")
           .attr("cx", d => projection(d.coordinates.coordinates)[0] )
           .attr("cy", d => projection(d.coordinates.coordinates)[1] )
@@ -156,32 +163,31 @@
       let coords_source = newTweet.coords_source +' ('+newTweet.place.full_name+')'
       console.log(coords_source + '|' +newTweet.polarity + "|" + newTweet.text)
 
-      setState({ tweets: [...store.tweets, newTweet] }, !historical)
+      addTweet(newTweet , !historical)
     };
   }
 
   (async function App() {
-      store.tweets = []
+      store.tweets = crossfilter()
 
       let data = await d3.json("nyc-zipcode-tabulation-areas.geojson")
       store.geoJSON = data
 
       const projection = drawMap(store.geoJSON)
 
-      //const heatMap = simpleheat('HeatMap')
-
-
       storeDispatcher.on("update", () => {
           const { tweets } = store;
 
           if (store.initialized) {
 
-            heatMap.add(projection(tweets.slice(-1)[0].coordinates.coordinates))
+            heatMap.add(tweets.allFiltered().filter(d => d.coords_source == 'Origin').map(d => projection(d.coordinates.coordinates)))
           }
           else {
 
-            heatMap.data(tweets.filter(d => d.coords_source == 'Origin').map(d => projection(d.coordinates.coordinates)))
+            heatMap.data(tweets.allFiltered().filter(d => d.coords_source == 'Origin').map(d => projection(d.coordinates.coordinates)))
                     .radius(1,5)
+            
+            store.initialized = true
           }
 
           heatMap.draw(0.05)

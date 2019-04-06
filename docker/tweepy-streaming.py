@@ -12,7 +12,10 @@ from gevent import pywsgi
 
 import tweepy
 from textblob import TextBlob
+
 import json
+import csv
+
 from datetime import datetime, timedelta
 from pytz import timezone
 
@@ -130,77 +133,12 @@ class NYCStreamListener(tweepy.StreamListener):
     def __init__(self):
         self.retry_attempt = 0
         self.sockets = []
-        self.filtered_keys = ['created_at',
-                              'id_str',
-                              'text',
-                              'coordinates',
-                              'place',
-                              'entities',
-                              'lang',
-                              'source',
-                              'polarity',
-                              'borough',
-                              'coords_source']
         self.date_fmt = '%a %b %d %H:%M:%S %z %Y'
         auth = tweepy.OAuthHandler(TWITTER_KEY, TWITTER_SECRET)
         auth.set_access_token(TWITTER_TOKEN, TWITTER_TOKEN_SECRET)
         self.api = tweepy.API(auth)
         self.stream = tweepy.Stream(self.api.auth, self)
         self.start()
-
-    def initialize_socket(self, ws, days):
-
-        # now = datetime.now()
-        # for d in range(days, -1, -1):
-        #     date = datetime.strftime(now - timedelta(d), '%Y-%m-%d')
-        #     fileName = 'tweets_' + date + '.json'
-
-        #     if(os.path.isfile('/data/' + fileName)):
-        #         print('Sending ' + fileName)
-        #         with open('/data/' + fileName, 'r') as tf:
-
-        #             for line in tf:
-        #                 decoded = json.loads(line)
-
-        #                 # Don't send tweets before current time only the first day
-        #                 created_at = datetime.strptime(decoded['created_at'], self.date_fmt)
-        #                 if (days == d) & (created_at.time() > now.time()):
-        #                     continue
-                        
-        #                 # Filter tweet data to send only what we need
-        #                 filtered = {key: decoded.get(key, None)
-        #                             for key in self.filtered_keys}
-        #                 filtered['historical'] = True
-
-        #                 # Send tweet to socket
-        #                 ws.send(json.dumps(filtered))
-        
-        now = datetime.now()
-        hour_before = (now - timedelta(hours=1)).astimezone(timezone('US/Eastern'))
-        date = datetime.strftime(now, '%Y-%m-%d')
-        fileName = 'tweets_' + date + '.json'
-
-        if(os.path.isfile('/data/' + fileName)):
-            print('Sending ' + fileName)
-            with open('/data/' + fileName, 'r') as tf:
-
-                for line in tf:
-                    decoded = json.loads(line)
-
-                    # Only send last hour
-                    created_at = datetime.strptime(decoded['created_at'], self.date_fmt)
-                    if created_at < hour_before:
-                        continue
-                    
-                    # Filter tweet data to send only what we need
-                    filtered = {key: decoded.get(key, None)
-                                for key in self.filtered_keys}
-                    filtered['historical'] = True
-
-                    # Send tweet to socket
-                    ws.send(json.dumps(filtered))
-        
-        self.add_socket(ws)
 
     def add_socket(self, ws):
         print('Websocket added')
@@ -275,8 +213,21 @@ class NYCStreamListener(tweepy.StreamListener):
 
             try:
                 # Filter tweet data to send only what we need
-                filtered = {key: decoded.get(key, None)
-                            for key in self.filtered_keys}
+                filter_keys = ['created_at',
+                                 'id_str',
+                                 'text',
+                                 'polarity',
+                                 'borough',
+                                 'coords_source']
+
+                smallTweet = {key: decoded.get(key, None)
+                            for key in filter_keys}
+
+                smallTweet['longitude'] = decoded['coordinates']['coordinates'][0]
+                smallTweet['latitude'] = decoded['coordinates']['coordinates'][1]
+                smallTweet['hashtags'] = ['#'+x['text'].lower() for x in decoded['entities']['hashtags']]
+                smallTweet['user_mentions'] = ['@'+x['screen_name'] for x in decoded['entities']['user_mentions']]
+                
             except Exception as e:
                 logging.warning('Dict filter error: ' + str(e), exc_info=True)
                 return True
@@ -284,18 +235,31 @@ class NYCStreamListener(tweepy.StreamListener):
             try:
                 # Send tweet to connected sockets
                 for ws in self.sockets:
-                    gevent.spawn(self.send, ws, filtered)
+                    gevent.spawn(self.send, ws, smallTweet)
             except Exception as e:
                 logging.warning('Send data error: ' + str(e), exc_info=True)
                 return True
 
             try:
-                # Save tweet to file
+                # Save full tweet to json file
                 fileName = 'tweets_' + created_at.strftime('%Y-%m-%d') \
                              + '.json'
                 with open('/data/' + fileName, 'a+') as tf:
                     json.dump(decoded, tf)
                     tf.write('\n')
+                
+                # Save filtered tweet to csv file
+                fileName = 'tweets-filtered_' + created_at.strftime('%Y-%m-%d') \
+                             + '.csv'
+                file_exists = os.path.isfile('/data/' + fileName)
+                with open('/data/' + fileName, 'a+') as tf:
+                    w = csv.DictWriter(tf, fieldnames=smallTweet.keys())
+
+                    if not file_exists:
+                        w.writeheader()
+
+                    w.writerow(smallTweet)   
+
             except Exception as e:
                 logging.warning('Save file error: ' + str(e), exc_info=True)
                 return True
@@ -337,8 +301,7 @@ def app(environ, start_response):
 
     if (type(environ) is dict) and ('wsgi.websocket' in environ):
         ws = environ['wsgi.websocket']
-        days = min(int(environ['QUERY_STRING']) if environ['QUERY_STRING'] else 0, 7)
-        stream_listener.initialize_socket(ws, days)
+        stream_listener.add_socket(ws)
         while not ws.closed:
             gevent.sleep(0.1)
         else:

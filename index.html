@@ -17,42 +17,37 @@
     .mainView {
       display: flex;
     }
+
+    .area {
+      fill: steelblue;
+      clip-path: url(#clip);
+    }
 </style>
 
 <script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://d3js.org/d3-time.v1.min.js"></script>
+<script src="https://d3js.org/d3-time-format.v2.min.js"></script>
 <script src="https://unpkg.com/d3-tile@0.0.4/build/d3-tile.min.js"></script>
-<script src="lib/simpleheat.js"></script>
-<script src="lib/crossfilter.min.js"></script>
+<script src="js/simpleheat.js"></script>
+<script src="js/crossfilter.min.js"></script>
+<script src="js/linechart.js"></script>
 
 <body>
-<h1>NYC Live Tweets</h1>
 <div class="mainView">
+  <div>
     <div style="position: relative;">
         <svg id="Map"></svg>
         <canvas id="HeatMap" width="600" height="600" style="position: absolute; top: 0px;"></canvas>
         <svg id="Points" width="600" height="600" style="position: absolute; top: 0px;"></svg>
     </div>
+    <div><svg id="timeline"></svg></div>
+  </div>
 </div>
 </body>
 
 <script>
 
   let store = {}
-  let storeDispatcher = d3.dispatch("update");
-  store.initialized = false
-  let heatMap = simpleheat('HeatMap')
-
-  function setState(state, update=True) {
-    store = { ...store, ...state };
-
-    if (update) storeDispatcher.call("update", store);
-  }
-
-  function addTweet(newTweet, update=True) {
-    store.tweets.add([newTweet])
-
-    if (update) storeDispatcher.call("update", store);
-  }
 
   function getMapConfig(){
     let width = 600;
@@ -94,25 +89,6 @@
       return projection;
   }
 
-  function getCoordinates(tweet){
-
-    if (tweet.coordinates)
-      return tweet.coordinates.coordinates
-    else {
-      let coordinates = tweet.place.bounding_box.coordinates[0]
-
-      let minx = d3.min(coordinates, d => d[0])
-      let maxx = d3.max(coordinates, d => d[0])
-      let miny = d3.min(coordinates, d => d[1])
-      let maxy = d3.max(coordinates, d => d[1])
-
-      let x = Math.random() * (maxx - minx) + minx;
-      let y = Math.random() * (maxy - miny) + miny;
-
-      return [x, y]
-    }
-  }
-
   function drawTweets() {
       let config = getMapConfig();
       let projection = getMapProjection(config)
@@ -126,8 +102,8 @@
       container.selectAll("circle")
           .data(store.tweets.allFiltered()).enter()
           .append("circle")
-          .attr("cx", d => projection(d.coordinates.coordinates)[0] )
-          .attr("cy", d => projection(d.coordinates.coordinates)[1] )
+          .attr("cx", d => projection([d.longitude,d.latitude])[0])
+          .attr("cy", d => projection([d.longitude,d.latitude])[1])
           .attr("fill", d => cScale(d.polarity))
           .attr("r", "2px")
           .transition()
@@ -141,7 +117,7 @@
   function startWebSocket(){
 
     //websocket
-    let ws = new WebSocket("ws://nycpulsewall.pmandiola.com:10001")
+    let ws = new WebSocket("ws://localhost:8899")
 
     ws.onopen = function(e) {
 
@@ -158,44 +134,53 @@
 
       let newTweet = JSON.parse(e.data)
 
-      let historical = (newTweet['historical'] === true)
-
-      let coords_source = newTweet.coords_source +' ('+newTweet.place.full_name+')'
+      let coords_source = newTweet.coords_source +' ('+newTweet.borough+')'
       console.log(coords_source + '|' +newTweet.polarity + "|" + newTweet.text)
 
-      addTweet(newTweet , !historical)
+      store.tweets.add([newTweet])
     };
   }
 
   (async function App() {
-      store.tweets = crossfilter()
 
-      let data = await d3.json("nyc-zipcode-tabulation-areas.geojson")
-      store.geoJSON = data
+    let formatDate = d3.timeFormat("%Y-%m-%d");
+    let data = await d3.csv("http://nycpulsewall.pmandiola.com:90/tweets-filtered_" + formatDate(new Date()) + ".csv");
+    let mapData = await d3.json("nyc-zipcode-tabulation-areas.geojson")
+    store.geoJSON = mapData
 
-      const projection = drawMap(store.geoJSON)
+    store.tweets = crossfilter(data)
 
-      storeDispatcher.on("update", () => {
-          const { tweets } = store;
+    const allTweets = store.tweets.all(),
+          tweetsByTime = store.tweets.dimension(function(d) {
+            var parseTime = d3.timeParse('%a %b %d %H:%M:%S %Z %Y');
+            return parseTime(d.created_at);
+          }),
+          tweetsGroupByTime = tweetsByTime.group(function(d) {  
+            coeff = 10
+            d.setMinutes(Math.round(d.getMinutes()/coeff)*coeff);
+            d.setSeconds(0);
+            return d;
+          })
 
-          if (store.initialized) {
+    const projection = drawMap(store.geoJSON),
+          timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 600, 150),
+          heatMap = simpleheat('HeatMap')
+                      .data(allTweets.filter(d => d.coords_source == 'Origin').map(d => projection([d.longitude,d.latitude])))
+                      .radius(1,5)
 
-            heatMap.add(tweets.allFiltered().filter(d => d.coords_source == 'Origin').map(d => projection(d.coordinates.coordinates)))
-          }
-          else {
+    store.tweets.onChange(eventType => {
 
-            heatMap.data(tweets.allFiltered().filter(d => d.coords_source == 'Origin').map(d => projection(d.coordinates.coordinates)))
-                    .radius(1,5)
-            
-            store.initialized = true
-          }
+      const tweets = store.tweets.allFiltered();
 
-          heatMap.draw(0.05)
+      heatMap.add(tweets.slice(-1).filter(d => d.coords_source == 'Origin').map(d => projection([d.longitude,d.latitude])))
 
-          drawTweets();
-      });
+      heatMap.draw(0.05)
+      drawTweets();
+      timeline(tweets)
+      
+    })
 
-      startWebSocket()
+    startWebSocket()
   })();
 
 </script>

@@ -31,6 +31,7 @@
 <script src="js/simpleheat.js"></script>
 <script src="js/crossfilter.min.js"></script>
 <script src="js/linechart.js"></script>
+<script src="js/barchart.js"></script>
 
 <body>
 <div class="mainView">
@@ -42,6 +43,7 @@
     </div>
     <div><svg id="timeline"></svg></div>
   </div>
+  <div><svg id="sentiment"></svg></div>
 </div>
 </body>
 
@@ -161,9 +163,12 @@
             d.setSeconds(0);
             return d;
           })
+          tweetsByPolarity = store.tweets.dimension(d => parseFloat(d.polarity))
+          tweetsGroupByPolarity = tweetsByPolarity.group(d => d == 1.0 ? 0.9 : Math.floor(d*10)/10)
 
     const projection = drawMap(store.geoJSON),
           timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 600, 150),
+          sentiment = BarChart("sentiment", tweetsByPolarity, tweetsGroupByPolarity, 300, 150),
           heatMap = simpleheat('HeatMap')
                       .data(allTweets.filter(d => d.coords_source == 'Origin').map(d => projection([d.longitude,d.latitude])))
                       .radius(1,5)
@@ -177,6 +182,7 @@
       heatMap.draw(0.05)
       drawTweets();
       timeline(tweets)
+      sentiment(tweets)
 
     })
 

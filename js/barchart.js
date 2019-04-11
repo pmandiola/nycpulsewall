@@ -50,7 +50,7 @@ function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
     const bars = body.selectAll("rect")
         .data(group.all())
-    bars.enter().append("rect")
+        .enter().append("rect")
         .attr("height", d => innerHeight - yScale(d.value))
         .attr("y", d => yScale(d.value))
         .attr("x", (d) => xScale(d.key))

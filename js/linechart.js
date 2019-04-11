@@ -16,8 +16,10 @@ function LineChart(id, dim, grp, width = 300, height = 300, onBrush) {
     /**
      *  Scales, transformers
      */
-    const xScale = d3.scaleTime().range([0, innerWidth]),
-          yScale = d3.scaleLinear().range([innerHeight, 0]);
+    const xScale = d3.scaleTime().range([0, innerWidth])
+                                 .domain([group.all()[0].key, group.all()[group.size()-1].key]),
+          yScale = d3.scaleLinear().range([innerHeight, 0])
+                                   .domain([0, group.top(1)[0].value]);
 
     const area = d3
         .area()
@@ -44,13 +46,22 @@ function LineChart(id, dim, grp, width = 300, height = 300, onBrush) {
         .append("g")
         .attr("class", "focus")
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-    const path = body.append("path");
+
+    const path = body.append("path")
+        .datum(group.all())
+        .attr("class", "area")
+        .attr("d", area);
+
     const xAxisView = body
         .append("g")
         .attr("class", "axis axis--x")
         .attr("transform", "translate(0," + innerHeight + ")");
 
     const yAxisView = body.append("g").attr("class", "axis axis--y");
+
+    xAxisView.call(xAxis);
+    yAxisView.call(yAxis);
+
     let brush = undefined;
     let brushG = undefined;
     if (onBrush) {
@@ -83,7 +94,6 @@ function LineChart(id, dim, grp, width = 300, height = 300, onBrush) {
             yScale.domain([0, group.top(1)[0].value]);
 
             path.datum(group.all())
-                .attr("class", "area")
                 .attr("d", area);
 
             xAxisView.call(xAxis);
@@ -95,5 +105,6 @@ function LineChart(id, dim, grp, width = 300, height = 300, onBrush) {
             }
         }
     }
+
     return update;
 }

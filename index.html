@@ -101,9 +101,8 @@
           .range(['red','yellow','green'])
 
       // add circles to svg
-      container.selectAll("circle")
-          .data(store.tweets.allFiltered()).enter()
-          .append("circle")
+      container.append("circle")
+          .datum(store.tweets.allFiltered().slice(-1)[0])
           .attr("cx", d => projection([d.longitude,d.latitude])[0])
           .attr("cy", d => projection([d.longitude,d.latitude])[1])
           .attr("fill", d => cScale(d.polarity))
@@ -114,6 +113,7 @@
           .transition()
           .duration(1000)
           .attr("r", "0px")
+          .remove()
   }
 
   function startWebSocket(){
@@ -164,7 +164,9 @@
             return d;
           })
           tweetsByPolarity = store.tweets.dimension(d => parseFloat(d.polarity))
-          tweetsGroupByPolarity = tweetsByPolarity.group(d => d == 1.0 ? 0.9 : Math.floor(d*10)/10)
+          tweetsGroupByPolarity = tweetsByPolarity.group(d => d == 1.0 ? 0.9 : Math.floor(d*10)/10),
+          tweetsByLatitude = store.tweets.dimension(d => parseFloat(d.latitude)),
+          tweetsByLongitude = store.tweets.dimension(d => parseFloat(d.longitude))
 
     const projection = drawMap(store.geoJSON),
           timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 600, 150),
@@ -172,6 +174,7 @@
           heatMap = simpleheat('HeatMap')
                       .data(allTweets.filter(d => d.coords_source == 'Origin').map(d => projection([d.longitude,d.latitude])))
                       .radius(1,5)
+                      .draw()
 
     store.tweets.onChange(eventType => {
 
@@ -179,7 +182,7 @@
 
       heatMap.add(tweets.slice(-1).filter(d => d.coords_source == 'Origin').map(d => projection([d.longitude,d.latitude])))
 
-      heatMap.draw(0.05)
+      heatMap.draw()
       drawTweets();
       timeline(tweets)
       sentiment(tweets)

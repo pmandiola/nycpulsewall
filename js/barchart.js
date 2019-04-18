@@ -76,8 +76,12 @@ function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
                     d3.event.sourceEvent.type === "zoom"
                 )
                     return; // ignore brush-by-zoom
-                var s = d3.event.selection.map(xScale.invert, xScale);
-                onBrush(s);
+                if (d3.event.selection) {
+
+                    var s = d3.event.selection.map(xScale.invert, xScale);
+                    onBrush(s);
+                }
+                else onBrush(null)
             });
         brushG = body
             .append("g")
@@ -94,7 +98,9 @@ function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
         if (prevInfo !== data) {
             yScale.domain([0, group.top(2)[1].value]);
 
-            bars.data(group.all());
+            bars.data(group.all())
+                .attr("height", d => innerHeight - yScale(d.value))
+                .attr("y", d => yScale(d.value));
 
             yAxisView.call(yAxis);
             prevInfo = data;

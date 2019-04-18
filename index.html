@@ -1,7 +1,6 @@
 <html>
 <style>
-    body {
-        font-family: Helvetica, Arial, sans-serif
+    body a        font-family: Helvetica, Arial, sans-serif
     }
 
     h1 {
@@ -32,6 +31,7 @@
 <script src="js/crossfilter.min.js"></script>
 <script src="js/linechart.js"></script>
 <script src="js/barchart.js"></script>
+<script src="js/topicchart2.js"></script>
 
 <body>
 <div class="mainView">
@@ -43,7 +43,9 @@
     </div>
     <div><svg id="timeline"></svg></div>
   </div>
+  <div><svg id='topicView' width='300' height='600'></svg><div>
   <div><svg id="sentiment"></svg></div>
+
 </div>
 </body>
 
@@ -183,7 +185,8 @@
           sentiment = BarChart("sentiment", tweetsByPolarity, tweetsGroupByPolarity, 300, 150,
                 d => {
                   tweetsByPolarity.filter(d);
-                })
+                }),
+          topicView = BarChart2('topicView',tweetsHashtags,tweetsGroupByHashtags,300,600),  
           heatMap = simpleheat('HeatMap')
                       .data(allTweets.filter(d => d.coords_source == 'Origin').map(d => projection([d.longitude,d.latitude])))
                       .radius(1,5)

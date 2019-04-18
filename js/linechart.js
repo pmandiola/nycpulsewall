@@ -74,8 +74,12 @@ function LineChart(id, dim, grp, width = 300, height = 300, onBrush) {
                     d3.event.sourceEvent.type === "zoom"
                 )
                     return; // ignore brush-by-zoom
-                var s = d3.event.selection.map(xScale.invert, xScale);
-                onBrush(s);
+                if (d3.event.selection) {
+
+                    var s = d3.event.selection.map(xScale.invert, xScale);
+                    onBrush(s);
+                }
+                else onBrush(null)
             });
         brushG = body
             .append("g")

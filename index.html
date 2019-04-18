@@ -93,7 +93,7 @@
       return projection;
   }
 
-  function drawTweets() {
+  function drawTweet(tweet) {
       let config = getMapConfig();
       let projection = getMapProjection(config)
       let container = d3.select('#Points')
@@ -104,7 +104,7 @@
 
       // add circles to svg
       container.append("circle")
-          .datum(store.tweets.allFiltered().slice(-1)[0])
+          .datum(tweet)
           .attr("cx", d => projection([d.longitude,d.latitude])[0])
           .attr("cy", d => projection([d.longitude,d.latitude])[1])
           .attr("fill", d => cScale(d.polarity))
@@ -149,6 +149,10 @@
 
     let formatDate = d3.timeFormat("%Y-%m-%d");
     let data = await d3.csv("http://nycpulsewall.pmandiola.com:90/tweets-filtered_" + formatDate(new Date()) + ".csv");
+    data.forEach(d => {
+      d.hashtags = JSON.parse(d.hashtags.replace(/'/g, '"'))
+      d.user_mentions = JSON.parse(d.user_mentions.replace(/'/g, '"'))
+    });
     let mapData = await d3.json("nyc-zipcode-tabulation-areas.geojson")
     store.geoJSON = mapData
 
@@ -169,11 +173,20 @@
           tweetsGroupByPolarity = tweetsByPolarity.group(d => d == 1.0 ? 0.9 : Math.floor(d*10)/10),
           tweetsByLatitude = store.tweets.dimension(d => parseFloat(d.latitude)),
           tweetsByLongitude = store.tweets.dimension(d => parseFloat(d.longitude))
+          tweetsByHashtag = store.tweets.dimension(d => d.hashtags, true)
+          tweetsGroupByHashtag = tweetsByHashtag.group()
+
 
     const projection = drawMap(store.geoJSON),
-          timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 600, 150),
-          topicView = BarChart2('topicView',tweetsHashtags,tweetsGroupByHashtags,300,600),
-          sentiment = BarChart("sentiment", tweetsByPolarity, tweetsGroupByPolarity, 300, 150),
+          timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 600, 150,
+                d => {
+                  tweetsByTime.filter(d);
+                }),
+          sentiment = BarChart("sentiment", tweetsByPolarity, tweetsGroupByPolarity, 300, 150,
+                d => {
+                  tweetsByPolarity.filter(d);
+                }),
+          topicView = BarChart2('topicView',tweetsHashtags,tweetsGroupByHashtags,300,600),  
           heatMap = simpleheat('HeatMap')
                       .data(allTweets.filter(d => d.coords_source == 'Origin').map(d => projection([d.longitude,d.latitude])))
                       .radius(1,5)
@@ -181,12 +194,22 @@
 
     store.tweets.onChange(eventType => {
 
+
       const tweets = store.tweets.allFiltered();
 
-      heatMap.add(tweets.slice(-1).filter(d => d.coords_source == 'Origin').map(d => projection([d.longitude,d.latitude])))
+      if (eventType == 'dataAdded'){
+
+        const newTweet = store.tweets.all().slice(-1)
+
+        if (newTweet[0].coords_source == 'Origin') heatMap.add(newTweet.map(d => projection([d.longitude,d.latitude])));
+        drawTweet(newTweet[0]);
+      }
+      else if (eventType == 'filtered'){
+
+        heatMap.data(tweets.filter(d => d.coords_source == 'Origin').map(d => projection([d.longitude,d.latitude])))
+      }
 
       heatMap.draw()
-      drawTweets();
       timeline(tweets)
       sentiment(tweets)
 

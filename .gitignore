@@ -2,3 +2,5 @@
 docker/.ipynb_checkpoints/
 
 docker/tweepy-streaming.yml
+
+.vscode/

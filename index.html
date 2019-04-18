@@ -31,7 +31,7 @@
 <script src="js/crossfilter.min.js"></script>
 <script src="js/linechart.js"></script>
 <script src="js/barchart.js"></script>
-<script src="js/topicchart2.js"></script>
+<script src="js/topicchart.js"></script>
 
 <body>
 <div class="mainView">
@@ -186,7 +186,7 @@
                 d => {
                   tweetsByPolarity.filter(d);
                 }),
-          topicView = BarChart2('topicView',tweetsHashtags,tweetsGroupByHashtags,300,600),  
+          topicView = TopicChart('topicView', tweetsByHashtag, tweetsGroupByHashtag, 300, 600),  
           heatMap = simpleheat('HeatMap')
                       .data(allTweets.filter(d => d.coords_source == 'Origin').map(d => projection([d.longitude,d.latitude])))
                       .radius(1,5)
@@ -212,7 +212,7 @@
       heatMap.draw()
       timeline(tweets)
       sentiment(tweets)
-
+      topicView(tweets)
     })
 
     startWebSocket()

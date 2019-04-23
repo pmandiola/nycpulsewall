@@ -1,6 +1,6 @@
 .ipynb_checkpoints/
 docker/.ipynb_checkpoints/
+.vscode/
 
 docker/tweepy-streaming.yml
-
-.vscode/
+docker/nyc-pulse-wall-202222d54651.json

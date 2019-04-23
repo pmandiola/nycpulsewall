@@ -121,7 +121,7 @@
   function startWebSocket(){
 
     //websocket
-    let ws = new WebSocket("ws://nycpulsewall.pmandiola.com:10001")
+    let ws = new WebSocket("ws://twts.pmandiola.com:10001")
 
     ws.onopen = function(e) {
 
@@ -148,7 +148,7 @@
   (async function App() {
 
     let formatDate = d3.timeFormat("%Y-%m-%d");
-    let data = await d3.csv("http://nycpulsewall.pmandiola.com:90/tweets-filtered_" + formatDate(new Date()) + ".csv");
+    let data = await d3.csv("http://twts.pmandiola.com:90/tweets-filtered_" + formatDate(new Date()) + ".csv");
     data.forEach(d => {
       d.hashtags = JSON.parse(d.hashtags.replace(/'/g, '"'))
       d.user_mentions = JSON.parse(d.user_mentions.replace(/'/g, '"'))

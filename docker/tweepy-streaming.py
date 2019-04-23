@@ -1,6 +1,7 @@
 # Based on https://stackoverflow.com/a/27884633
 
 import os
+import sys
 import logging
 
 import gevent
@@ -15,11 +16,13 @@ from textblob import TextBlob
 
 import json
 import csv
+from collections import OrderedDict
 
 from datetime import datetime, timedelta
 from pytz import timezone
 
 import random
+from numpy.random import choice
 from shapely.geometry import shape, mapping, Point
 from shapely.affinity import affine_transform
 
@@ -42,13 +45,15 @@ for boro in nyc_boroughs['features']:
 
 
 def random_point_in_polygon(transforms, areas):
-    transform = random.choices(transforms, weights=areas)
+    total = sum(areas)
+    transform = transforms[choice(len(transforms),
+                                  p=[x/total for x in areas])]
     x, y = [random.random() for _ in range(2)]
     if x + y > 1:
         p = Point(1 - x, 1 - y)
     else:
         p = Point(x, y)
-    return affine_transform(p, transform[0])
+    return affine_transform(p, transform)
 
 
 def random_point_in_box(box):
@@ -190,7 +195,9 @@ class NYCStreamListener(tweepy.StreamListener):
             return True
 
         if (decoded['coords_source']):
-            print(decoded['text'])
+            #Fix for python 3.4 console
+            sys.stdout.buffer.write(decoded['text'].encode('utf-8'))
+            #print(text)
 
             try:
                 # Sentiment analysis
@@ -220,8 +227,7 @@ class NYCStreamListener(tweepy.StreamListener):
                                  'borough',
                                  'coords_source']
 
-                smallTweet = {key: decoded.get(key, None)
-                            for key in filter_keys}
+                smallTweet = OrderedDict( (key, decoded.get(key, None)) for key in filter_keys)
 
                 smallTweet['longitude'] = decoded['coordinates']['coordinates'][0]
                 smallTweet['latitude'] = decoded['coordinates']['coordinates'][1]
@@ -242,17 +248,17 @@ class NYCStreamListener(tweepy.StreamListener):
 
             try:
                 # Save full tweet to json file
-                fileName = 'tweets_' + created_at.strftime('%Y-%m-%d') \
-                             + '.json'
-                with open('/data/' + fileName, 'a+') as tf:
-                    json.dump(decoded, tf)
-                    tf.write('\n')
+                # fileName = 'tweets_' + created_at.strftime('%Y-%m-%d') \
+                #              + '.json'
+                # with open('/data/' + fileName, 'a+') as tf:
+                #     json.dump(decoded, tf)
+                #     tf.write('\n')
                 
                 # Save filtered tweet to csv file
                 fileName = 'tweets-filtered_' + created_at.strftime('%Y-%m-%d') \
                              + '.csv'
                 file_exists = os.path.isfile('/data/' + fileName)
-                with open('/data/' + fileName, 'a+') as tf:
+                with open('/data/' + fileName, 'a+', encoding='utf-8') as tf:
                     w = csv.DictWriter(tf, fieldnames=smallTweet.keys())
 
                     if not file_exists:

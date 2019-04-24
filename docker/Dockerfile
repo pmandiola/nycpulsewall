@@ -4,7 +4,19 @@ FROM google/cloud-sdk:slim
 RUN apt-get update && apt-get install -y python3 python3-pip nginx cron
 
 #Install python pakages
-RUN pip3 install numpy tweepy gevent-websocket textblob shapely pytz
+RUN pip3 install numpy \
+    tweepy \
+    gevent-websocket \
+    textblob \
+    shapely \
+    pytz \
+    gensim \
+    spacy \
+    nltk
+
+#Download nltk stopwords and spacy en lang
+RUN python3 -m nltk.downloader stopwords && \
+    python3 -m spacy download en
 
 #Add files
 ADD tweepy-streaming.py /

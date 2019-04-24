@@ -23,16 +23,6 @@ function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
           cScale = d3.scaleLinear().range(['red','yellow','green'])
                                    .domain([-1,0,1])
 
-    const area = d3
-        .area()
-        .curve(d3.curveMonotoneX)
-        .x(function(d) {
-            return xScale(d.key);
-        })
-        .y0(innerHeight)
-        .y1(function(d) {
-            return yScale(d.value);
-        });
     const xAxis = d3.axisBottom(xScale).ticks(7);
     const yAxis = d3.axisLeft(yScale).ticks(5);
 

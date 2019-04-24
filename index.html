@@ -1,12 +1,13 @@
 <html>
 <style>
-    body a        font-family: Helvetica, Arial, sans-serif
+    body a {
+      font-family: Helvetica, Arial, sans-serif
     }
 
     h1 {
-        background-color: #2a5599;
-        color: #FFFFFF;
-        padding: 5px;
+      background-color: #2a5599;
+      color: #FFFFFF;
+      padding: 5px;
     }
 
     svg, canvas {
@@ -26,12 +27,13 @@
 <script src="https://d3js.org/d3.v5.min.js"></script>
 <script src="https://d3js.org/d3-time.v1.min.js"></script>
 <script src="https://d3js.org/d3-time-format.v2.min.js"></script>
-<script src="https://unpkg.com/d3-tile@0.0.4/build/d3-tile.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js"></script>
 <script src="js/simpleheat.js"></script>
 <script src="js/crossfilter.min.js"></script>
 <script src="js/linechart.js"></script>
 <script src="js/barchart.js"></script>
 <script src="js/topicchart.js"></script>
+<script src="js/wordcloud.js"></script>
 
 <body>
 <div class="mainView">
@@ -43,8 +45,13 @@
     </div>
     <div><svg id="timeline"></svg></div>
   </div>
-  <div><svg id='topicView' width='300' height='600'></svg><div>
-  <div><svg id="sentiment"></svg></div>
+  <div>
+    <div><svg id='topicView' width='300' height='600'></svg></div>
+    <div><svg id="sentiment"></svg></div>
+  </div>
+  <div>
+    <div><svg id="wordcloud"></svg></div>
+  </div>
 
 </div>
 </body>
@@ -138,6 +145,9 @@
 
       let newTweet = JSON.parse(e.data)
 
+      var parseTime = d3.timeParse('%a %b %d %H:%M:%S %Z %Y');
+      newTweet.created_at = parseTime(newTweet.created_at)
+
       let coords_source = newTweet.coords_source +' ('+newTweet.borough+')'
       console.log(coords_source + '|' +newTweet.polarity + "|" + newTweet.text)
 
@@ -148,33 +158,41 @@
   (async function App() {
 
     let formatDate = d3.timeFormat("%Y-%m-%d");
-    let data = await d3.csv("http://twts.pmandiola.com:90/tweets-filtered_" + formatDate(new Date()) + ".csv");
-    data.forEach(d => {
+    let data = await Promise.all([
+      d3.csv("http://twts.pmandiola.com:90/tweets-filtered_" + formatDate(new Date()) + ".csv"),
+      d3.json("nyc-zipcode-tabulation-areas.geojson")
+    ])
+
+    store.geoJSON = data[data.length -1]
+
+    twitterData = [].concat(...data.slice(0, -1))
+    twitterData.forEach(d => {
       d.hashtags = JSON.parse(d.hashtags.replace(/'/g, '"'))
       d.user_mentions = JSON.parse(d.user_mentions.replace(/'/g, '"'))
-    });
-    let mapData = await d3.json("nyc-zipcode-tabulation-areas.geojson")
-    store.geoJSON = mapData
+      d.lemma = JSON.parse(d.lemma.replace(/'/g, '"'))
+      var parseTime = d3.timeParse('%a %b %d %H:%M:%S %Z %Y');
+      d.created_at = parseTime(d.created_at)
+      d.polarity = parseFloat(d.polarity)
+    })
 
-    store.tweets = crossfilter(data)
+    store.tweets = crossfilter(twitterData)
 
     const allTweets = store.tweets.all(),
-          tweetsByTime = store.tweets.dimension(function(d) {
-            var parseTime = d3.timeParse('%a %b %d %H:%M:%S %Z %Y');
-            return parseTime(d.created_at);
-          }),
+          tweetsByTime = store.tweets.dimension(d => d.created_at),
           tweetsGroupByTime = tweetsByTime.group(function(d) {  
             coeff = 10
             d.setMinutes(Math.round(d.getMinutes()/coeff)*coeff);
             d.setSeconds(0);
             return d;
           })
-          tweetsByPolarity = store.tweets.dimension(d => parseFloat(d.polarity))
+          tweetsByPolarity = store.tweets.dimension(d => d.polarity)
           tweetsGroupByPolarity = tweetsByPolarity.group(d => d == 1.0 ? 0.9 : Math.floor(d*10)/10),
           tweetsByLatitude = store.tweets.dimension(d => parseFloat(d.latitude)),
           tweetsByLongitude = store.tweets.dimension(d => parseFloat(d.longitude))
           tweetsByHashtag = store.tweets.dimension(d => d.hashtags, true)
-          tweetsGroupByHashtag = tweetsByHashtag.group()
+          tweetsGroupByHashtag = tweetsByHashtag.group(),
+          tweetsByWords = store.tweets.dimension(d => d.lemma, true),
+          tweetsGroupByWords = tweetsByWords.group()
 
 
     const projection = drawMap(store.geoJSON),
@@ -190,7 +208,8 @@
           heatMap = simpleheat('HeatMap')
                       .data(allTweets.filter(d => d.coords_source == 'Origin').map(d => projection([d.longitude,d.latitude])))
                       .radius(1,5)
-                      .draw()
+                      .draw(),
+          wordcloud = WordCloud("wordcloud", tweetsByWords, tweetsGroupByWords, 600, 600)
 
     store.tweets.onChange(eventType => {
 
@@ -213,6 +232,7 @@
       timeline(tweets)
       sentiment(tweets)
       topicView(tweets)
+      wordcloud()
     })
 
     startWebSocket()

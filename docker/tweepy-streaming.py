@@ -14,6 +14,10 @@ from gevent import pywsgi
 import tweepy
 from textblob import TextBlob
 
+from gensim.utils import simple_preprocess
+import spacy
+from nltk.corpus import stopwords
+
 import json
 import csv
 from collections import OrderedDict
@@ -25,23 +29,6 @@ import random
 from numpy.random import choice
 from shapely.geometry import shape, mapping, Point
 from shapely.affinity import affine_transform
-
-# Twitter keys from Env Vars
-TWITTER_KEY = os.getenv('TWITTER_KEY')
-TWITTER_SECRET = os.getenv('TWITTER_SECRET')
-TWITTER_TOKEN = os.getenv('TWITTER_TOKEN')
-TWITTER_TOKEN_SECRET = os.getenv('TWITTER_TOKEN_SECRET')
-
-# Logging config
-logging.basicConfig(filename='/data/tweepy-streaming.log',
-                    format='%(asctime)s %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S')
-
-with open('nyc-borough-processed.geojson') as json_file:
-    nyc_boroughs = json.load(json_file)
-
-for boro in nyc_boroughs['features']:
-    boro['geometry'] = shape(boro['geometry'])
 
 
 def random_point_in_polygon(transforms, areas):
@@ -134,6 +121,41 @@ def process_coordinates(tweet):
     return tweet
 
 
+def get_lemma(tweet):
+    allowed_postags=['NOUN', 'ADJ', 'VERB', 'ADV']
+    
+    text = tweet['text'] if not tweet['truncated'] else tweet['extended_tweet']['full_text']
+    entities = tweet['entities'] if not tweet['truncated'] else tweet['extended_tweet']['entities']
+    
+    hashtags = ['#'+x['text'].lower() for x in entities['hashtags']]
+    user_mentions = ['@'+x['screen_name'].lower() for x in entities['user_mentions']]
+    urls = [x['url'].lower() for x in entities['urls']]
+    
+    if 'media' in entities:
+        media = [x['url'].lower() for x in entities['media']]
+        all_entities = hashtags + user_mentions + urls + media
+    else:
+        all_entities = hashtags + user_mentions + urls
+    
+    #Remove entities
+    clean_text = ' '.join([x for x in text.split() if x.lower() not in all_entities])
+    
+    #Preprocess
+    clean_text = simple_preprocess(clean_text)
+    
+    #Remove stop words
+    clean_text = [word for word in clean_text if word not in stop_words]
+    
+    # Parse the sentence using the loaded 'en' model object `nlp`. Extract the lemma for each token and join
+    clean_text = nlp(' '.join(clean_text)) 
+    clean_text = {token.lemma_ for token in clean_text if token.pos_ in allowed_postags}
+    
+    #Remove stop words again
+    clean_text = [word for word in clean_text if word not in stop_words]
+    
+    return clean_text
+
+
 class NYCStreamListener(tweepy.StreamListener):
     def __init__(self):
         self.retry_attempt = 0
@@ -196,15 +218,24 @@ class NYCStreamListener(tweepy.StreamListener):
 
         if (decoded['coords_source']):
             #Fix for python 3.4 console
-            sys.stdout.buffer.write(decoded['text'].encode('utf-8'))
-            #print(text)
+            full_text = decoded['text'] if not decoded['truncated'] else decoded['extended_tweet']['full_text']
+            # sys.stdout.buffer.write(full_text.encode('utf-8'))
 
             try:
                 # Sentiment analysis
-                analysis = TextBlob(decoded['text'])
+                analysis = TextBlob(full_text)
                 decoded['polarity'] = analysis.sentiment[0]
             except Exception as e:
                 logging.warning('Sentiment analysis error: ' + str(e),
+                                exc_info=True)
+                return True
+
+            try:
+                # Lemmatization
+                lemma = get_lemma(decoded)
+                decoded['lemma'] = lemma
+            except Exception as e:
+                logging.warning('Lemmatization error: ' + str(e),
                                 exc_info=True)
                 return True
 
@@ -222,17 +253,18 @@ class NYCStreamListener(tweepy.StreamListener):
                 # Filter tweet data to send only what we need
                 filter_keys = ['created_at',
                                  'id_str',
-                                 'text',
                                  'polarity',
                                  'borough',
-                                 'coords_source']
+                                 'coords_source',
+                                 'lemma']
 
                 smallTweet = OrderedDict( (key, decoded.get(key, None)) for key in filter_keys)
 
-                smallTweet['longitude'] = decoded['coordinates']['coordinates'][0]
-                smallTweet['latitude'] = decoded['coordinates']['coordinates'][1]
                 smallTweet['hashtags'] = ['#'+x['text'].lower() for x in decoded['entities']['hashtags']]
                 smallTweet['user_mentions'] = ['@'+x['screen_name'] for x in decoded['entities']['user_mentions']]
+                smallTweet['longitude'] = decoded['coordinates']['coordinates'][0]
+                smallTweet['latitude'] = decoded['coordinates']['coordinates'][1]
+                smallTweet['text'] = full_text
                 
             except Exception as e:
                 logging.warning('Dict filter error: ' + str(e), exc_info=True)
@@ -269,12 +301,13 @@ class NYCStreamListener(tweepy.StreamListener):
             except Exception as e:
                 logging.warning('Save file error: ' + str(e), exc_info=True)
                 return True
-        else:
-            if decoded['place']:
-                print('DISCARDED: {} not in NYC'.format(
-                        decoded['place']['full_name']))
-            else:
-                print('DISCARDED: place is empty')
+        # else:
+        #     if decoded['place']:
+        #         #Fix for python 3.4 console
+        #         sys.stdout.buffer.write('DISCARDED: {} not in NYC'.format(
+        #                 decoded['place']['full_name']).encode('utf-8'))
+        #     else:
+        #         print('DISCARDED: place is empty')
         return True
 
     def on_connect(self):
@@ -300,9 +333,6 @@ class NYCStreamListener(tweepy.StreamListener):
         gevent.sleep(30)
 
 
-stream_listener = NYCStreamListener()
-
-
 def app(environ, start_response):
 
     if (type(environ) is dict) and ('wsgi.websocket' in environ):
@@ -317,5 +347,40 @@ def app(environ, start_response):
         return [b"<b>alive!</b>"]
 
 
-server = pywsgi.WSGIServer(('', 10001), app, handler_class=WebSocketHandler)
-server.serve_forever()
+if __name__ == '__main__':
+
+    # Twitter keys from Env Vars
+    TWITTER_KEY = os.getenv('TWITTER_KEY')
+    TWITTER_SECRET = os.getenv('TWITTER_SECRET')
+    TWITTER_TOKEN = os.getenv('TWITTER_TOKEN')
+    TWITTER_TOKEN_SECRET = os.getenv('TWITTER_TOKEN_SECRET')
+
+    # Logging config
+    logging.basicConfig(filename='/data/tweepy-streaming.log',
+                        format='%(asctime)s %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S')
+
+    # Load geofile
+    with open('nyc-borough-processed.geojson') as json_file:
+        nyc_boroughs = json.load(json_file)
+
+    for boro in nyc_boroughs['features']:
+        boro['geometry'] = shape(boro['geometry'])
+
+    # Load ntlk stopwords
+    stop_words = stopwords.words('english')
+    stop_words.extend(['com', 'from', 'subject', 're', 'edu', 'use',
+                    'not', 'would', 'say', 'could', '_', 'be', 'know',
+                    'good', 'go', 'get', 'do', 'done', 'try', 'many',
+                    'some', 'nice', 'thank', 'think', 'see', 'rather',
+                    'easy', 'easily', 'lot', 'lack', 'make', 'want',
+                    'seem', 'run', 'need', 'even', 'right', 'line',
+                    'even', 'also', 'may', 'take', 'come',
+                    'new', 'york', 'amp', 'ny'])
+
+    # Load spacy en lang
+    nlp = spacy.load('en', disable=['parser', 'ner'])
+
+    stream_listener = NYCStreamListener()
+    server = pywsgi.WSGIServer(('', 10001), app, handler_class=WebSocketHandler)
+    server.serve_forever()

@@ -59,8 +59,6 @@ function HeatMap(id, twts, width = 600, height = 600) {
     function drawTweet(tweet) {
   
         proj = mapboxProjection([tweet.longitude,tweet.latitude])
-        
-        console.log(proj)
 
         // add circles to svg
         svg.append("circle")

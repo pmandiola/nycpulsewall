@@ -1,1 +1,1 @@
-1 4 * * * bash /save-tweet-files.sh
+1 4 * * * /bin/bash /delete-old-files.sh

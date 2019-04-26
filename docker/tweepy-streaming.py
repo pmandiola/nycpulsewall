@@ -1,7 +1,6 @@
 # Based on https://stackoverflow.com/a/27884633
 
 import os
-import sys
 import logging
 
 import gevent
@@ -20,27 +19,23 @@ from nltk.corpus import stopwords
 
 import json
 import csv
-from collections import OrderedDict
 
 from datetime import datetime, timedelta
 from pytz import timezone
 
 import random
-from numpy.random import choice
 from shapely.geometry import shape, mapping, Point
 from shapely.affinity import affine_transform
 
 
 def random_point_in_polygon(transforms, areas):
-    total = sum(areas)
-    transform = transforms[choice(len(transforms),
-                                  p=[x/total for x in areas])]
+    transform = random.choices(transforms, weights=areas)
     x, y = [random.random() for _ in range(2)]
     if x + y > 1:
         p = Point(1 - x, 1 - y)
     else:
         p = Point(x, y)
-    return affine_transform(p, transform)
+    return affine_transform(p, transform[0])
 
 
 def random_point_in_box(box):
@@ -59,64 +54,34 @@ def which_borough(point):
 
 def process_coordinates(tweet):
 
-    boro_list = ['Manhattan', 'Brooklyn', 'Bronx', 'Queens', 'Staten Island']
-    nyc_ids = ['27485069891a7938', '94965b2c45386f87']
+    boro_list = ['Manhattan', 'Brooklyn', 'Queens']
+
     tweet['coords_source'] = 'Randomized'
 
     if tweet['coordinates']:
-        # Check if inside NYC
+
         coords = shape(tweet['coordinates'])
-        boro_name = which_borough(coords)
-        if boro_name:
-            tweet['coords_source'] = 'Origin'
-            tweet['coordinates'] = mapping(coords)
-            tweet['borough'] = boro_name
-        else:
-            tweet['coords_source'] = False
+        tweet['coords_source'] = 'Origin'
 
-    elif tweet['place']['place_type'] == 'poi':
-        # Point of interest.
+    elif (tweet['place']['place_type'] == 'poi') or \
+        (tweet['place']['place_type'] == 'neighborhood'):
+
         coords = random_point_in_box(shape(tweet['place']['bounding_box']))
-        boro_name = which_borough(coords)
-        if boro_name:
-            tweet['coordinates'] = mapping(coords)
-            tweet['borough'] = boro_name
-        else:
-            tweet['coords_source'] = False
-
-    elif (tweet['place']['place_type'] == 'neighborhood') & \
-            any(tweet['place']['full_name'].endswith(boro)
-                for boro in boro_list):
-        # Place is a neigborhood in a NYC borough.
-        # Full name is [Neigborhood], [City (Borough)]
-        boro_name = tweet['place']['full_name'].split(', ')[-1]
-        boro = list(filter(lambda x: x['properties']['boro_name'] == boro_name,
-                    nyc_boroughs['features']))[0]
-        tweet['coordinates'] = mapping(
-            random_point_in_polygon(boro['transforms'], boro['areas']))
-        tweet['borough'] = boro_name
 
     elif (tweet['place']['place_type'] == 'city') & \
             (tweet['place']['name'] in boro_list):
-        # Place is a NYC borough
+
         boro = list(filter(
             lambda x: x['properties']['boro_name'] == tweet['place']['name'],
             nyc_boroughs['features']))[0]
-        tweet['coordinates'] = mapping(
-            random_point_in_polygon(boro['transforms'], boro['areas']))
-        tweet['borough'] = tweet['place']['name']
-
-    elif (tweet['place']['place_type'] == 'admin') & \
-            (tweet['place']['id'] in nyc_ids):
-        # Place is NYC
-        b = random.randint(0, 4)
-        boro = nyc_boroughs['features'][b]
-        tweet['coordinates'] = mapping(
-            random_point_in_polygon(boro['transforms'], boro['areas']))
-        tweet['borough'] = boro['properties']['boro_name']
+        coords = random_point_in_polygon(boro['transforms'], boro['areas'])
 
     else:
-        tweet['coords_source'] = False
+        transforms = [transform for feature in nyc_boroughs['features'] for transform in feature['transforms']]
+        areas = [area for feature in nyc_boroughs['features'] for area in feature['areas']]
+        coords = random_point_in_polygon(transforms, areas)
+
+    tweet['coordinates'] = mapping(coords)
 
     return tweet
 
@@ -157,7 +122,8 @@ def get_lemma(tweet):
 
 
 class NYCStreamListener(tweepy.StreamListener):
-    def __init__(self):
+    def __init__(self, locations):
+        self.locations = locations
         self.retry_attempt = 0
         self.sockets = []
         self.date_fmt = '%a %b %d %H:%M:%S %z %Y'
@@ -172,12 +138,13 @@ class NYCStreamListener(tweepy.StreamListener):
         self.sockets.append(ws)
 
     def remove_socket(self, ws):
-        self.sockets.remove(ws)
+        if ws in self.sockets:
+            self.sockets.remove(ws)
 
     def run(self):
         print("Run")
         try:
-            self.stream.filter(locations=[-74.05, 40.54, -73.7, 40.92])
+            self.stream.filter(locations=self.locations)
         except Exception as e:
             logging.warning('Stream error: ' + str(e), exc_info=True)
             self.stream.disconnect()
@@ -217,9 +184,7 @@ class NYCStreamListener(tweepy.StreamListener):
             return True
 
         if (decoded['coords_source']):
-            #Fix for python 3.4 console
             full_text = decoded['text'] if not decoded['truncated'] else decoded['extended_tweet']['full_text']
-            # sys.stdout.buffer.write(full_text.encode('utf-8'))
 
             try:
                 # Sentiment analysis
@@ -258,7 +223,7 @@ class NYCStreamListener(tweepy.StreamListener):
                                  'coords_source',
                                  'lemma']
 
-                smallTweet = OrderedDict( (key, decoded.get(key, None)) for key in filter_keys)
+                smallTweet =  {key: decoded.get(key, None) for key in filter_keys}
 
                 smallTweet['hashtags'] = ['#'+x['text'].lower() for x in decoded['entities']['hashtags']]
                 smallTweet['user_mentions'] = ['@'+x['screen_name'] for x in decoded['entities']['user_mentions']]
@@ -290,7 +255,7 @@ class NYCStreamListener(tweepy.StreamListener):
                 fileName = 'tweets-filtered_' + created_at.strftime('%Y-%m-%d') \
                              + '.csv'
                 file_exists = os.path.isfile('/data/' + fileName)
-                with open('/data/' + fileName, 'a+', encoding='utf-8') as tf:
+                with open('/data/' + fileName, 'a+') as tf:
                     w = csv.DictWriter(tf, fieldnames=smallTweet.keys())
 
                     if not file_exists:
@@ -301,13 +266,12 @@ class NYCStreamListener(tweepy.StreamListener):
             except Exception as e:
                 logging.warning('Save file error: ' + str(e), exc_info=True)
                 return True
-        # else:
-        #     if decoded['place']:
-        #         #Fix for python 3.4 console
-        #         sys.stdout.buffer.write('DISCARDED: {} not in NYC'.format(
-        #                 decoded['place']['full_name']).encode('utf-8'))
-        #     else:
-        #         print('DISCARDED: place is empty')
+        else:
+            if decoded['place']:
+                print('DISCARDED: {} not in NYC'.format(
+                        decoded['place']['full_name']))
+            else:
+                print('DISCARDED: place is empty')
         return True
 
     def on_connect(self):
@@ -361,7 +325,7 @@ if __name__ == '__main__':
                         datefmt='%Y-%m-%d %H:%M:%S')
 
     # Load geofile
-    with open('nyc-borough-processed.geojson') as json_file:
+    with open('nyc-zoomed-processed.geojson') as json_file:
         nyc_boroughs = json.load(json_file)
 
     for boro in nyc_boroughs['features']:
@@ -380,7 +344,7 @@ if __name__ == '__main__':
 
     # Load spacy en lang
     nlp = spacy.load('en', disable=['parser', 'ner'])
-
-    stream_listener = NYCStreamListener()
+    # 40.687125, -74.024321, 40.786497, -73.931534
+    stream_listener = NYCStreamListener(locations=[-74.02, 40.68, -73.93, 40.78])
     server = pywsgi.WSGIServer(('', 10001), app, handler_class=WebSocketHandler)
     server.serve_forever()

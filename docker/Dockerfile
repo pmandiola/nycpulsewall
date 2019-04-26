@@ -1,11 +1,10 @@
-FROM google/cloud-sdk:slim
+FROM python:3.6
 
 #Install nginx & cron
-RUN apt-get update && apt-get install -y python3 python3-pip nginx cron
+RUN apt-get update && apt-get -y install nginx cron
 
 #Install python pakages
-RUN pip3 install numpy \
-    tweepy \
+RUN pip install tweepy \
     gevent-websocket \
     textblob \
     shapely \
@@ -15,12 +14,12 @@ RUN pip3 install numpy \
     nltk
 
 #Download nltk stopwords and spacy en lang
-RUN python3 -m nltk.downloader stopwords && \
-    python3 -m spacy download en
+RUN python -m nltk.downloader stopwords && \
+    python -m spacy download en
 
 #Add files
 ADD tweepy-streaming.py /
-ADD nyc-borough-processed.geojson /
+ADD nyc-zoomed-processed.geojson /
 ADD save-tweet-files.sh /
 ADD tweets-crontab /etc/cron.d/
 
@@ -39,4 +38,4 @@ ENV PORT 10001
 ENV PORT 90
 
 #Start nginx and run python script
-CMD service nginx start && python3 ./tweepy-streaming.py
+CMD service nginx start && python ./tweepy-streaming.py

@@ -30,7 +30,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js"></script>
 <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.54.0/mapbox-gl.js'></script>
 <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.54.0/mapbox-gl.css' rel='stylesheet' />
-<script src="js/simpleheat.js"></script>
+<script src="js/heatmap.js"></script>
 <script src="js/crossfilter.min.js"></script>
 <script src="js/linechart.js"></script>
 <script src="js/barchart.js"></script>
@@ -40,11 +40,7 @@
 <body>
 <div class="mainView">
   <div>
-    <div style="position: relative;">
-        <div id="map" style='width: 600px; height: 600px;'></div>
-        <canvas id="HeatMap" width="600" height="600" style="position: absolute; top: 0px;"></canvas>
-        <svg id="Points" width="600" height="600" style="position: absolute; top: 0px;"></svg>
-    </div>
+    <div id="map" style='width: 600px; height: 600px;'></div>
     <div><svg id="timeline"></svg></div>
   </div>
   <div>
@@ -61,72 +57,6 @@
 <script>
 
   let store = {}
-
-  function getMapConfig(){
-    let width = 600;
-    let height = 600;
-    let container = d3.select('#Map')
-    // container
-    //     .attr("width", width)
-    //     .attr("height", height)
-    return {width, height, container}
-  }
-
-  function getMapProjection(config) {
-    let {width, height} = config;
-    let projection = d3.geoMercator()
-    projection.scale(250000)
-              .center([-73.975, 40.73])
-              .translate([width / 2 + 20, height / 2])
-
-    store.mapProjection = projection;
-    return projection;
-  }
-
-  function drawMap() {
-      let config = getMapConfig();
-      let projection = getMapProjection(config)
-      let container = config.container
-
-    mapboxgl.accessToken = 'pk.eyJ1IjoicG1hbmRpb2xhYiIsImEiOiJjanIyNzZndWIwMDJnNDV1NGVyMDUxbzg2In0.RQeWOCc-u8MBvg9XR2r9EQ'
-    
-    //Setup mapbox-gl map
-    var map = new mapboxgl.Map({
-      container: 'map', // container id
-      style: 'mapbox://styles/mapbox/light-v9',
-      center: [-73.975, 40.73],
-      zoom: 11.8,
-      
-    })
-    map.scrollZoom.disable()
-
-    return projection;
-  }
-
-  function drawTweet(tweet) {
-      let config = getMapConfig();
-      let projection = getMapProjection(config)
-      let container = d3.select('#Points')
-
-      let cScale = d3.scaleLinear()
-          .domain([-1,0,1])
-          .range(['red','yellow','green'])
-
-      // add circles to svg
-      container.append("circle")
-          .datum(tweet)
-          .attr("cx", d => projection([d.longitude,d.latitude])[0])
-          .attr("cy", d => projection([d.longitude,d.latitude])[1])
-          .attr("fill", d => cScale(d.polarity))
-          .attr("r", "2px")
-          .transition()
-          .duration(50)
-          .attr("r", "20px")
-          .transition()
-          .duration(1000)
-          .attr("r", "0px")
-          .remove()
-  }
 
   function startWebSocket(){
 
@@ -161,9 +91,16 @@
   (async function App() {
 
     let formatDate = d3.timeFormat("%Y-%m-%d");
-    let data = await Promise.all([
-      d3.csv("http://twts.pmandiola.com:90/tweets-filtered_" + formatDate(new Date()) + ".csv")
-    ])
+
+    let files = []
+
+    for (i = 0; i < 3; i++) {
+      var today = new Date();
+      files.push("http://twts.pmandiola.com:90/tweets-filtered_" + formatDate(today.setDate(today.getDate() - i)) + ".csv")
+    }
+
+    const results = await Promise.all(files.map(f => d3.csv(f).catch(e => console.log(e.message))));
+    const data = results.filter(result => result);
 
     twitterData = [].concat(...data)
     twitterData.forEach(d => {
@@ -173,6 +110,8 @@
       var parseTime = d3.timeParse('%a %b %d %H:%M:%S %Z %Y');
       d.created_at = parseTime(d.created_at)
       d.polarity = parseFloat(d.polarity)
+      d.latitude = parseFloat(d.latitude)
+      d.longitude = parseFloat(d.longitude)
     })
 
     store.tweets = crossfilter(twitterData)
@@ -187,16 +126,13 @@
           })
           tweetsByPolarity = store.tweets.dimension(d => d.polarity)
           tweetsGroupByPolarity = tweetsByPolarity.group(d => d == 1.0 ? 0.9 : Math.floor(d*10)/10),
-          tweetsByLatitude = store.tweets.dimension(d => parseFloat(d.latitude)),
-          tweetsByLongitude = store.tweets.dimension(d => parseFloat(d.longitude))
           tweetsByHashtag = store.tweets.dimension(d => d.hashtags, true)
           tweetsGroupByHashtag = tweetsByHashtag.group(),
           tweetsByWords = store.tweets.dimension(d => d.lemma, true),
           tweetsGroupByWords = tweetsByWords.group()
 
 
-    const projection = drawMap(),
-          timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 600, 150,
+    const timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 600, 150,
                 d => {
                   tweetsByTime.filter(d);
                 }),
@@ -205,36 +141,25 @@
                   tweetsByPolarity.filter(d);
                 }),
           topicView = TopicChart('topicView', tweetsByHashtag, tweetsGroupByHashtag, 300, 600),  
-          heatMap = simpleheat('HeatMap')
-                      .data(allTweets.filter(d => d.coords_source == 'Origin').map(d => projection([d.longitude,d.latitude])))
-                      .radius(1,5)
-                      .gradient({
-                        0.5: '#a6bddb',
-                        0.7: '#74a9cf',
-                        0.9: '#2b8cbe',
-                        1.0: '#023858'
-                      })
-                      .draw(),
-          wordcloud = WordCloud("wordcloud", tweetsByWords, tweetsGroupByWords, 600, 600)
+          wordcloud = WordCloud("wordcloud", tweetsByWords, tweetsGroupByWords, 600, 600),
+          heatmap = HeatMap('map', allTweets.filter(d => d.coords_source == 'Origin'))
 
     store.tweets.onChange(eventType => {
 
 
       const tweets = store.tweets.allFiltered();
 
-      if (eventType == 'dataAdded'){
+      if (eventType == 'dataAdded' && store.tweets.isElementFiltered(store.tweets.size()-1) ){
 
-        const newTweet = store.tweets.all().slice(-1)
+        newTweet = tweets.slice(-1)[0]
 
-        if (newTweet[0].coords_source == 'Origin') heatMap.add(newTweet.map(d => projection([d.longitude,d.latitude])));
-        drawTweet(newTweet[0]);
+        heatmap(newTweet);
       }
       else if (eventType == 'filtered'){
 
-        heatMap.data(tweets.filter(d => d.coords_source == 'Origin').map(d => projection([d.longitude,d.latitude])))
+        heatmap(tweets.filter(d => d.coords_source == 'Origin'))
       }
 
-      heatMap.draw()
       timeline(tweets)
       sentiment(tweets)
       topicView(tweets)

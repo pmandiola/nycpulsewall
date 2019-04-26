@@ -344,7 +344,8 @@ if __name__ == '__main__':
 
     # Load spacy en lang
     nlp = spacy.load('en', disable=['parser', 'ner'])
-    # 40.687125, -74.024321, 40.786497, -73.931534
+    
+    # Start server
     stream_listener = NYCStreamListener(locations=[-74.02, 40.68, -73.93, 40.78])
     server = pywsgi.WSGIServer(('', 10001), app, handler_class=WebSocketHandler)
     server.serve_forever()

@@ -11,6 +11,14 @@ function HeatMap(id, twts, width = 600, height = 600) {
       interactive: false
     })
 
+
+        //add NavigationControl & Geocoder
+    map.addControl(new MapboxGeocoder({
+        accessToken:mapboxgl.accessToken,
+        mapboxgl:mapboxgl
+    }));
+    map.addControl(new mapboxgl.NavigationControl());
+
     const container = map.getCanvasContainer()
     const svg = d3.select(container).append("svg")
         .attr('width', '100%')

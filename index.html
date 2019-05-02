@@ -30,6 +30,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js"></script>
 <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.54.0/mapbox-gl.js'></script>
 <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.54.0/mapbox-gl.css' rel='stylesheet' />
+<!-- add geocoder -->
+<script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.0.0/mapbox-gl-geocoder.min.js'></script>
+<link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.0.0/mapbox-gl-geocoder.css' type='text/css' />
+
 <script src="js/heatmap.js"></script>
 <script src="js/crossfilter.min.js"></script>
 <script src="js/linechart.js"></script>
@@ -40,7 +44,7 @@
 <body>
 <div class="mainView">
   <div>
-    <div id="map" style='width: 600px; height: 600px;'></div>
+    <div id='map' style='width:600px; height: 600px;'></div>
     <div><svg id="timeline"></svg></div>
   </div>
   <div>
@@ -48,9 +52,12 @@
     <div><svg id="sentiment"></svg></div>
   </div>
   <div>
-    <div><svg id="wordcloud"></svg></div>
+    <div><svg id='userView' width='300' height='600'></svg></div>
   </div>
-
+  <div>
+    <div><svg id = 'wordcloud'></svg></div>
+    <div><svg id = 'tweetsinfo'></svg><div>
+  </div>
 </div>
 </body>
 
@@ -128,8 +135,16 @@
           tweetsGroupByPolarity = tweetsByPolarity.group(d => d == 1.0 ? 0.9 : Math.floor(d*10)/10),
           tweetsByHashtag = store.tweets.dimension(d => d.hashtags, true)
           tweetsGroupByHashtag = tweetsByHashtag.group(),
+          /// userMensionView
+          tweetsByUserMentions = store.tweets.dimension(d=>d.user_mentions,true),
+          tweetsGroupByUserMentions = tweetsByUserMentions.group(),
+
           tweetsByWords = store.tweets.dimension(d => d.lemma, true),
           tweetsGroupByWords = tweetsByWords.group()
+          /// TweetsInfo Inprogress
+          ///tweetsCount = store.tweets.all()
+          tweetsByText = store.tweets.dimension(d=>d.text,true)
+          tweetsByCount = store.tweets.all()
 
 
     const timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 600, 150,
@@ -140,7 +155,9 @@
                 d => {
                   tweetsByPolarity.filter(d);
                 }),
-          topicView = TopicChart('topicView', tweetsByHashtag, tweetsGroupByHashtag, 300, 600),  
+          topicView = TopicChart('topicView', tweetsByHashtag, tweetsGroupByHashtag, 300, 600), 
+          ///add userView
+         userView = TopicChart('userView',tweetsByUserMentions,tweetsGroupByUserMentions,300,600),
           wordcloud = WordCloud("wordcloud", tweetsByWords, tweetsGroupByWords, 600, 600),
           heatmap = HeatMap('map', allTweets.filter(d => d.coords_source == 'Origin'))
 
@@ -163,7 +180,10 @@
       timeline(tweets)
       sentiment(tweets)
       topicView(tweets)
+      userView(tweets)
       wordcloud()
+
+
     })
 
     startWebSocket()

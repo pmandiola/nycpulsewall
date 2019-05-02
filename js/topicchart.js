@@ -1,15 +1,14 @@
 function TopicChart(id, dim, grp, width = 300, height = 600, onBrush) {
+
     const dimension = dim,
           group = grp;
-
-
 
     const margin = {top: 60, right: 10, bottom: 50, left: 10},
           bodyHeight = height -margin.top - margin.bottom,
           bodyWidth = width - margin.left - margin.right,
           categoryIndent = 10
 
-    const container = d3.select('#topicView')
+    const container = d3.select(`#${id}`)
             .attr("width", width)
             .attr("height", height)
 
@@ -28,6 +27,15 @@ function TopicChart(id, dim, grp, width = 300, height = 600, onBrush) {
           bars_container = body.selectAll("rect")
             .data(group.top(10))
 
+    // change color onclick
+    var toggleColor = (function(){
+       var currentColor = "#dce1e5";
+        
+        return function(){
+            currentColor = currentColor == "#dce1e5" ? "#3182bd" : "#dce1e5";
+            d3.select(this).style("fill", currentColor);
+        }
+    })();
         
     const bars = bars_container.enter().append('rect')
             .attr('height', yScale.bandwidth())
@@ -44,7 +52,18 @@ function TopicChart(id, dim, grp, width = 300, height = 600, onBrush) {
             })
             .on('click',function(d){
                 dimension.filter(d.key)
+                d3.select(this)
+                  .attr('fill',toggleColor)
             })
+
+            .on('dblclick',function(d){
+                dimension.filterAll()
+                d3.selectAll()
+                  .attr('fill','#dce1e5')
+                d3.select(this)
+                  .attr('fill',toggleColor)
+            })
+
     
     const texts = bars_container.enter().append('text')
         .text(d=>d.key)
@@ -55,16 +74,17 @@ function TopicChart(id, dim, grp, width = 300, height = 600, onBrush) {
     const xAxis = d3.axisBottom(xScale).ticks(5)
     const yAxis = d3.axisLeft(yScale) // Create axis on the left for the Yscale
 
-    const xAxisView = container.append('g')
+    const xAxisView = body.append('g')
                     .style("transform",
                         `translate($(${margin.left}px,${height-margin.bottom}px)`)
-    
-    const yAxisView = container
-                        .append('g')
-                        .style("transform",
-                        `translate($(${margin.left}px,${margin.top}px)`)
-    
-    yAxisView.call(yAxis)
+                    .attr("transform", "translate(0," + bodyHeight + ")");
+    // do not need yAxisView for now
+    // const yAxisView = body
+    //                     .append('g')
+    //                     .style("transform",
+    //                     `translate($(${margin.left}px,${margin.top}px)`)
+
+    //yAxisView.call(yAxis)
     xAxisView.call(xAxis)
 
 
@@ -80,8 +100,14 @@ function TopicChart(id, dim, grp, width = 300, height = 600, onBrush) {
                     d3.event.sourceEvent.type === "zoom"
                 )
                     return; // ignore brush-by-zoom
-                var s = d3.event.selection.map(xScale.invert, xScale);
-                onBrush(s);
+
+                //update the onBrush(null) to remove filter effect
+                if (d3.event.selection){
+                    var s = d3.event.selection.map(xScale.invert, xScale);
+                    onBrush(s);                   
+                }else{
+                    dimension.filterAll();
+                }
             });
         brushG = body
             .append("g")
@@ -108,7 +134,7 @@ function TopicChart(id, dim, grp, width = 300, height = 600, onBrush) {
                 .attr('y',(d)=>yScale(d.key))
 
             xAxisView.call(xAxis);
-            yAxisView.call(yAxis);
+            //yAxisView.call(yAxis);
             prevInfo = data;
 
             if (brushG && selection) {

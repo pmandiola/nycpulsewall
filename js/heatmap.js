@@ -12,7 +12,7 @@ function HeatMap(id, twts, width = 600, height = 600) {
     })
 
 
-        //add NavigationControl & Geocoder
+    //add NavigationControl & Geocoder
     map.addControl(new MapboxGeocoder({
         accessToken:mapboxgl.accessToken,
         mapboxgl:mapboxgl

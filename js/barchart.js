@@ -23,7 +23,15 @@ function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
           cScale = d3.scaleLinear().range(['red','yellow','green'])
                                    .domain([-1,0,1])
 
-    const xAxis = d3.axisBottom(xScale).ticks(7);
+    const tickLabels = {
+        '-1':'negative',
+        '0':'neutral',
+        '1':'positive'
+    }
+
+    const xAxis = d3.axisBottom(xScale)
+                    .ticks(2)
+                    .tickFormat(d => tickLabels[String(d)]);
     const yAxis = d3.axisLeft(yScale).ticks(5);
 
     /**

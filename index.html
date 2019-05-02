@@ -80,6 +80,16 @@
 
       var parseTime = d3.timeParse('%a %b %d %H:%M:%S %Z %Y');
       newTweet.created_at = parseTime(newTweet.created_at)
+      if (newTweet.coords_source == 'Origin'){
+
+        newTweet.geojson = {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [newTweet.longitude, newTweet.latitude]
+                    }
+                }
+      }
 
       let coords_source = newTweet.coords_source +' ('+newTweet.borough+')'
       console.log(coords_source + '|' +newTweet.polarity + "|" + newTweet.text)
@@ -112,6 +122,17 @@
       d.polarity = parseFloat(d.polarity)
       d.latitude = parseFloat(d.latitude)
       d.longitude = parseFloat(d.longitude)
+
+      if (d.coords_source == 'Origin'){
+
+        d.geojson = {
+                  "type": "Feature",
+                  "geometry": {
+                      "type": "Point",
+                      "coordinates": [d.longitude, d.latitude]
+                      }
+                  }
+      }
     })
 
     store.tweets = crossfilter(twitterData)
@@ -119,7 +140,7 @@
     const allTweets = store.tweets.all(),
           tweetsByTime = store.tweets.dimension(d => d.created_at),
           tweetsGroupByTime = tweetsByTime.group(function(d) {  
-            coeff = 10
+            coeff = 3x0
             d.setMinutes(Math.round(d.getMinutes()/coeff)*coeff);
             d.setSeconds(0);
             return d;

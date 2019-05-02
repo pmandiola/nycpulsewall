@@ -76,23 +76,14 @@ function HeatMap(id, twts, width = 600, height = 600) {
             .remove()
     }
 
-    function setTweets(t) {
+    function setTweets(tweets) {
 
         if (!lock) {
             lock = true
 
-            tweets = t.map(d => { return {
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [d.longitude, d.latitude]
-                    }
-                }
-            });
-
             geojson = {
                 type: "FeatureCollection",
-                features: tweets
+                features: tweets.map(d => d.geojson)
             }
     
             twtsSrc = map.getSource('tweets')
@@ -105,18 +96,12 @@ function HeatMap(id, twts, width = 600, height = 600) {
     }
     setTweets(twts)
 
-    function addTweet(t) {
+    function addTweet(tweet) {
 
-        if (!lock && t.coords_source == 'Origin') {
+        if (!lock && tweet.coords_source == 'Origin') {
             lock = true
 
-            geojson.features.push({
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [t.longitude, t.latitude]
-                    }
-            })
+            geojson.features.push(tweet.geojson)
     
             twtsSrc = map.getSource('tweets')
             if (twtsSrc) {
@@ -124,7 +109,7 @@ function HeatMap(id, twts, width = 600, height = 600) {
                 twtsSrc.setData(geojson);
             }
         }
-        drawTweet(t)
+        drawTweet(tweet)
         lock = false
     }
 

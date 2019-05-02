@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 from pytz import timezone
 
 import random
-from shapely.geometry import shape, mapping, Point
+from shapely.geometry import shape, mapping, Point, Polygon
 from shapely.affinity import affine_transform
 
 
@@ -52,7 +52,7 @@ def which_borough(point):
     return False
 
 
-def process_coordinates(tweet):
+def process_coordinates(tweet, bbox):
 
     boro_list = ['Manhattan', 'Brooklyn', 'Queens']
 
@@ -81,12 +81,28 @@ def process_coordinates(tweet):
         areas = [area for feature in nyc_boroughs['features'] for area in feature['areas']]
         coords = random_point_in_polygon(transforms, areas)
 
-    tweet['coordinates'] = mapping(coords)
+    if bbox.contains(coords):
+        tweet['coordinates'] = mapping(coords)
+    else:
+        tweet['coords_source'] = False
 
     return tweet
 
 
 def get_lemma(tweet):
+    # Load ntlk stopwords
+    stop_words = stopwords.words('english')
+    stop_words.extend(['com', 'from', 'subject', 're', 'edu', 'use',
+                    'not', 'would', 'say', 'could', '_', 'be', 'know',
+                    'good', 'go', 'get', 'do', 'done', 'try', 'many',
+                    'some', 'nice', 'thank', 'think', 'see', 'rather',
+                    'easy', 'easily', 'lot', 'lack', 'make', 'want',
+                    'seem', 'run', 'need', 'even', 'right', 'line',
+                    'even', 'also', 'may', 'take', 'come',
+                    'new', 'york', 'amp', 'ny'])
+
+    # Load spacy en lang
+    nlp = spacy.load('en', disable=['parser', 'ner'])
     allowed_postags=['NOUN', 'ADJ', 'VERB', 'ADV']
     
     text = tweet['text'] if not tweet['truncated'] else tweet['extended_tweet']['full_text']
@@ -124,6 +140,11 @@ def get_lemma(tweet):
 class NYCStreamListener(tweepy.StreamListener):
     def __init__(self, locations):
         self.locations = locations
+        self.bbox = Polygon([(locations[0], locations[1]),
+                             (locations[0], locations[3]),
+                             (locations[2], locations[3]),
+                             (locations[2], locations[1])
+                             ])
         self.retry_attempt = 0
         self.sockets = []
         self.date_fmt = '%a %b %d %H:%M:%S %z %Y'
@@ -177,7 +198,7 @@ class NYCStreamListener(tweepy.StreamListener):
 
         try:
             # Process coordinates
-            decoded = process_coordinates(decoded)
+            decoded = process_coordinates(decoded, self.bbox)
         except Exception as e:
             logging.warning('Process coords error: ' + str(e),
                             exc_info=True)
@@ -229,7 +250,7 @@ class NYCStreamListener(tweepy.StreamListener):
                 smallTweet['user_mentions'] = ['@'+x['screen_name'] for x in decoded['entities']['user_mentions']]
                 smallTweet['longitude'] = decoded['coordinates']['coordinates'][0]
                 smallTweet['latitude'] = decoded['coordinates']['coordinates'][1]
-                smallTweet['text'] = full_text
+                smallTweet['text'] = decoded['text']
                 
             except Exception as e:
                 logging.warning('Dict filter error: ' + str(e), exc_info=True)
@@ -268,7 +289,7 @@ class NYCStreamListener(tweepy.StreamListener):
                 return True
         else:
             if decoded['place']:
-                print('DISCARDED: {} not in NYC'.format(
+                print('DISCARDED: {} out of bounding box'.format(
                         decoded['place']['full_name']))
             else:
                 print('DISCARDED: place is empty')
@@ -330,20 +351,6 @@ if __name__ == '__main__':
 
     for boro in nyc_boroughs['features']:
         boro['geometry'] = shape(boro['geometry'])
-
-    # Load ntlk stopwords
-    stop_words = stopwords.words('english')
-    stop_words.extend(['com', 'from', 'subject', 're', 'edu', 'use',
-                    'not', 'would', 'say', 'could', '_', 'be', 'know',
-                    'good', 'go', 'get', 'do', 'done', 'try', 'many',
-                    'some', 'nice', 'thank', 'think', 'see', 'rather',
-                    'easy', 'easily', 'lot', 'lack', 'make', 'want',
-                    'seem', 'run', 'need', 'even', 'right', 'line',
-                    'even', 'also', 'may', 'take', 'come',
-                    'new', 'york', 'amp', 'ny'])
-
-    # Load spacy en lang
-    nlp = spacy.load('en', disable=['parser', 'ner'])
     
     # Start server
     stream_listener = NYCStreamListener(locations=[-74.02, 40.68, -73.93, 40.78])

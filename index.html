@@ -90,12 +90,12 @@
       if (newTweet.coords_source == 'Origin'){
 
         newTweet.geojson = {
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [newTweet.longitude, newTweet.latitude]
-                    }
-                }
+          "type": "Feature",
+          "geometry": {
+              "type": "Point",
+              "coordinates": [newTweet.longitude, newTweet.latitude]
+              }
+          }
       }
 
       let coords_source = newTweet.coords_source +' ('+newTweet.borough+')'
@@ -161,11 +161,6 @@
 
           tweetsByWords = store.tweets.dimension(d => d.lemma, true),
           tweetsGroupByWords = tweetsByWords.group()
-          /// TweetsInfo Inprogress
-          ///tweetsCount = store.tweets.all()
-          tweetsByText = store.tweets.dimension(d=>d.text,true)
-          tweetsByCount = store.tweets.all()
-
 
     const timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 600, 150,
                 d => {

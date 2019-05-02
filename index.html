@@ -131,7 +131,6 @@
       d.longitude = parseFloat(d.longitude)
 
       if (d.coords_source == 'Origin'){
-
         d.geojson = {
                   "type": "Feature",
                   "geometry": {
@@ -147,7 +146,7 @@
     const allTweets = store.tweets.all(),
           tweetsByTime = store.tweets.dimension(d => d.created_at),
           tweetsGroupByTime = tweetsByTime.group(function(d) {  
-            coeff = 3x0
+            coeff = 30
             d.setMinutes(Math.round(d.getMinutes()/coeff)*coeff);
             d.setSeconds(0);
             return d;
@@ -178,7 +177,7 @@
                 }),
           topicView = TopicChart('topicView', tweetsByHashtag, tweetsGroupByHashtag, 300, 600), 
           ///add userView
-         userView = TopicChart('userView',tweetsByUserMentions,tweetsGroupByUserMentions,300,600),
+          userView = TopicChart('userView',tweetsByUserMentions,tweetsGroupByUserMentions,300,600),
           wordcloud = WordCloud("wordcloud", tweetsByWords, tweetsGroupByWords, 600, 600),
           heatmap = HeatMap('map', allTweets.filter(d => d.coords_source == 'Origin'))
 

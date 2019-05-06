@@ -90,20 +90,6 @@ def process_coordinates(tweet, bbox):
 
 
 def get_lemma(tweet):
-    # Load ntlk stopwords
-    stop_words = stopwords.words('english')
-    stop_words.extend(['com', 'from', 'subject', 're', 'edu', 'use',
-                    'not', 'would', 'say', 'could', '_', 'be', 'know',
-                    'good', 'go', 'get', 'do', 'done', 'try', 'many',
-                    'some', 'nice', 'thank', 'think', 'see', 'rather',
-                    'easy', 'easily', 'lot', 'lack', 'make', 'want',
-                    'seem', 'run', 'need', 'even', 'right', 'line',
-                    'even', 'also', 'may', 'take', 'come',
-                    'new', 'york', 'amp', 'ny'])
-
-    # Load spacy en lang
-    nlp = spacy.load('en', disable=['parser', 'ner'])
-    allowed_postags=['NOUN', 'ADJ', 'VERB', 'ADV']
     
     text = tweet['text'] if not tweet['truncated'] else tweet['extended_tweet']['full_text']
     entities = tweet['entities'] if not tweet['truncated'] else tweet['extended_tweet']['entities']
@@ -126,9 +112,9 @@ def get_lemma(tweet):
     
     #Remove stop words
     clean_text = [word for word in clean_text if word not in stop_words]
-    
+
     # Parse the sentence using the loaded 'en' model object `nlp`. Extract the lemma for each token and join
-    clean_text = nlp(' '.join(clean_text)) 
+    clean_text = next(nlp.pipe([' '.join(clean_text)]))
     clean_text = {token.lemma_ for token in clean_text if token.pos_ in allowed_postags}
     
     #Remove stop words again
@@ -351,6 +337,21 @@ if __name__ == '__main__':
 
     for boro in nyc_boroughs['features']:
         boro['geometry'] = shape(boro['geometry'])
+
+    # Load ntlk stopwords
+    stop_words = stopwords.words('english')
+    stop_words.extend(['com', 'from', 'subject', 're', 'edu', 'use',
+                    'not', 'would', 'say', 'could', '_', 'be', 'know',
+                    'good', 'go', 'get', 'do', 'done', 'try', 'many',
+                    'some', 'nice', 'thank', 'think', 'see', 'rather',
+                    'easy', 'easily', 'lot', 'lack', 'make', 'want',
+                    'seem', 'run', 'need', 'even', 'right', 'line',
+                    'even', 'also', 'may', 'take', 'come',
+                    'new', 'york', 'amp', 'ny'])
+
+    # Load spacy en lang
+    nlp = spacy.load('en', disable=['parser', 'ner'])
+    allowed_postags=['NOUN', 'ADJ', 'VERB', 'ADV']
     
     # Start server
     stream_listener = NYCStreamListener(locations=[-74.02, 40.68, -73.93, 40.78])

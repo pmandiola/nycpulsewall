@@ -50,6 +50,7 @@ function HeatMap(id, twts, width = 600, height = 600) {
             paint: {
                 'heatmap-radius': 15,
                 'heatmap-opacity': 0.8,
+                'heatmap-intensity': 0.3,
                 'heatmap-color': [
                     "interpolate",
                     ["linear"],

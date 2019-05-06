@@ -1,6 +1,6 @@
 <html>
 <style>
-    body a {
+    body {
       font-family: Helvetica, Arial, sans-serif
     }
 
@@ -10,10 +10,6 @@
       padding: 5px;
     }
 
-    svg, canvas {
-      border: solid 1px #000000;
-    }
-
     .mainView {
       display: flex;
     }
@@ -21,6 +17,17 @@
     .area {
       fill: steelblue;
       clip-path: url(#clip);
+    }
+
+    svg text {
+      cursor: default;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+    svg text::selection {
+        background: none;
     }
 </style>
 
@@ -55,7 +62,7 @@
     <div><svg id='userView' width='300' height='600'></svg></div>
   </div>
   <div>
-    <div><svg id = 'wordcloud'></svg></div>
+    <div><svg id = 'wordView'></svg></div>
     <div><svg id = 'tweetsinfo'></svg><div>
   </div>
 </div>
@@ -171,15 +178,12 @@
                 d => {
                   tweetsByPolarity.filter(d);
                 }),
-          topicView = TopicChart('topicView', tweetsByHashtag, tweetsGroupByHashtag, 300, 600), 
-          ///add userView
-
-         userView = TopicChart('userView',tweetsByUserMentions,tweetsGroupByUserMentions,300,600),
-          wordcloud = TopicChart("wordcloud", tweetsByWords, tweetsGroupByWords, 300, 600),
+          topicView = TopicChart('topicView', tweetsByHashtag, tweetsGroupByHashtag, 300, 600, 20), 
+          userView = TopicChart('userView',tweetsByUserMentions,tweetsGroupByUserMentions,300,600, 20),
+          wordView = TopicChart("wordView", tweetsByWords, tweetsGroupByWords, 300, 600, 20),
           heatmap = HeatMap('map', allTweets.filter(d => d.coords_source == 'Origin'))
 
     store.tweets.onChange(eventType => {
-
 
       const tweets = store.tweets.allFiltered();
 
@@ -198,8 +202,7 @@
       sentiment(tweets)
       topicView(tweets)
       userView(tweets)
-      wordcloud(tweets)
-
+      wordView(tweets)
 
     })
 

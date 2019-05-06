@@ -62,6 +62,7 @@ function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
     const yAxisView = body.append("g").attr("class", "axis axis--y");
     xAxisView.call(xAxis);
     yAxisView.call(yAxis);
+    
     let brush = undefined;
     let brushG = undefined;
     if (onBrush) {
@@ -94,7 +95,7 @@ function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
 
     function update(data, selection) {
         if (prevInfo !== data) {
-            yScale.domain([0, group.top(2)[1].value]);
+            yScale.domain([0, Math.max(group.top(2)[1].value, 5)]);
 
             bars.data(group.all())
                 .attr("height", d => innerHeight - yScale(d.value))

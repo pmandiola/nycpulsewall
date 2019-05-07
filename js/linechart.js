@@ -1,4 +1,4 @@
-function LineChart(id, dim, grp, width = 300, height = 300, onBrush) {
+function LineChart(id, dim, grp, width = 300, height = 300, onBrush, scale) {
     
     /**
      *  Data
@@ -16,7 +16,7 @@ function LineChart(id, dim, grp, width = 300, height = 300, onBrush) {
     /**
      *  Scales, transformers
      */
-    const xScale = d3.scaleTime().range([0, innerWidth])
+    const xScale = scale.range([0, innerWidth])
                                  .domain([group.all()[0].key, group.all()[group.size()-1].key]),
           yScale = d3.scaleLinear().range([innerHeight, 0])
                                    .domain([0, group.top(1)[0].value]);
@@ -31,7 +31,7 @@ function LineChart(id, dim, grp, width = 300, height = 300, onBrush) {
         .y1(function(d) {
             return yScale(d.value);
         });
-    const xAxis = d3.axisBottom(xScale).ticks(7);
+    const xAxis = d3.axisBottom(xScale);
     const yAxis = d3.axisLeft(yScale).ticks(5);
 
     /**

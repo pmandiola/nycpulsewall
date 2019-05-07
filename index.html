@@ -56,10 +56,11 @@
   </div>
   <div>
     <div><svg id='topicView' width='300' height='600'></svg></div>
-    <div><svg id="sentiment"></svg></div>
+    <div><svg id="timeofday"></svg></div>
   </div>
   <div>
     <div><svg id='userView' width='300' height='600'></svg></div>
+    <div><svg id="sentiment"></svg></div>
   </div>
   <div>
     <div><svg id = 'wordView'></svg></div>
@@ -115,10 +116,17 @@
   (async function App() {
 
     let formatDate = d3.timeFormat("%Y-%m-%d");
-
     let files = []
+    let days = 3
 
-    for (i = 0; i < 3; i++) {
+    function removeOldTweets(){
+
+      today = new Date();
+      limit = today.setDate(today.getDate() - days)
+      store.tweets.remove(d => d.created_at < limit)
+    }
+
+    for (i = 0; i < days + 1; i++) {
       var today = new Date();
       files.push("http://twts.pmandiola.com:90/tweets-filtered_" + formatDate(today.setDate(today.getDate() - i)) + ".csv")
     }
@@ -149,20 +157,28 @@
     })
 
     store.tweets = crossfilter(twitterData)
+    // Remove old tweets
+    removeOldTweets()
 
     const allTweets = store.tweets.all(),
+
           tweetsByTime = store.tweets.dimension(d => d.created_at),
           tweetsGroupByTime = tweetsByTime.group(function(d) {  
             coeff = 30
             d.setMinutes(Math.round(d.getMinutes()/coeff)*coeff);
             d.setSeconds(0);
             return d;
-          })
+          }),
+
+          tweetsByHour = store.tweets.dimension(d => d.created_at.getHours()  + d.created_at.getMinutes() / 60),
+          tweetsGroupByHour= tweetsByHour.group(Math.floor)
+
           tweetsByPolarity = store.tweets.dimension(d => d.polarity)
           tweetsGroupByPolarity = tweetsByPolarity.group(d => d == 1.0 ? 0.9 : Math.floor(d*10)/10),
+
           tweetsByHashtag = store.tweets.dimension(d => d.hashtags, true)
           tweetsGroupByHashtag = tweetsByHashtag.group(),
-          /// userMensionView
+
           tweetsByUserMentions = store.tweets.dimension(d=>d.user_mentions,true),
           tweetsGroupByUserMentions = tweetsByUserMentions.group(),
 
@@ -173,7 +189,11 @@
     const timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 600, 150,
                 d => {
                   tweetsByTime.filter(d);
-                }),
+                }, d3.scaleTime()),
+          timeofday = LineChart("timeofday", tweetsByHour, tweetsGroupByHour, 300, 150,
+                d => {
+                  tweetsByHour.filter(d);
+                }, d3.scaleLinear()),
           sentiment = BarChart("sentiment", tweetsByPolarity, tweetsGroupByPolarity, 300, 150,
                 d => {
                   tweetsByPolarity.filter(d);
@@ -193,12 +213,13 @@
 
         heatmap(newTweet);
       }
-      else if (eventType == 'filtered'){
+      else {
 
         heatmap(tweets.filter(d => d.coords_source == 'Origin'))
       }
 
       timeline(tweets)
+      timeofday(tweets)
       sentiment(tweets)
       topicView(tweets)
       userView(tweets)
@@ -207,6 +228,9 @@
     })
 
     startWebSocket()
+
+    // Remove old tweets every 15 minutes
+    setInterval(removeOldTweets, 1000*60*15)
   })();
 
 </script>

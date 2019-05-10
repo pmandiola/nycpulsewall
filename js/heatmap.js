@@ -1,26 +1,29 @@
-function HeatMap(id, twts, width = 600, height = 600) {
+function HeatMap(id, twts, width = 600, height = 600, onBrush) {
 
     mapboxgl.accessToken = 'pk.eyJ1IjoicG1hbmRpb2xhYiIsImEiOiJjanIyNzZndWIwMDJnNDV1NGVyMDUxbzg2In0.RQeWOCc-u8MBvg9XR2r9EQ'
+
+    const container = d3.select(`#${id}`)
+        .attr("style", `width:${width}px; height: ${height}px;`)
 
     //Setup mapbox-gl map
     const map = new mapboxgl.Map({
       container: id, // container id
       style: 'mapbox://styles/mapbox/light-v9',
-      center: [-73.975, 40.73],
+      center: [-73.975, 40.733],
       zoom: 11.8,
       interactive: false
     })
 
 
     //add NavigationControl & Geocoder
-    map.addControl(new MapboxGeocoder({
-        accessToken:mapboxgl.accessToken,
-        mapboxgl:mapboxgl
-    }));
-    map.addControl(new mapboxgl.NavigationControl());
+    // map.addControl(new MapboxGeocoder({
+    //     accessToken:mapboxgl.accessToken,
+    //     mapboxgl:mapboxgl
+    // }));
+    // map.addControl(new mapboxgl.NavigationControl());
 
-    const container = map.getCanvasContainer()
-    const svg = d3.select(container).append("svg")
+    const body = d3.select(map.getCanvasContainer())
+    const svg = body.append("svg")
         .attr('width', '100%')
         .attr('height', '100%')
         .style('position', 'absolute')
@@ -32,7 +35,12 @@ function HeatMap(id, twts, width = 600, height = 600) {
     function mapboxProjection(lonlat) {
         var p = map.project(new mapboxgl.LngLat(lonlat[0], lonlat[1]))
         return [p.x, p.y];
-      }
+    }
+
+    function mapboxUnProject(xy) {
+        var lonlat = map.unproject(xy)
+        return [lonlat.lng, lonlat.lat];
+    }
 
     var geojson;
     var lock = false;
@@ -83,6 +91,30 @@ function HeatMap(id, twts, width = 600, height = 600) {
             .duration(1000)
             .attr("r", "0px")
             .remove()
+    }
+
+    let brush = undefined;
+    let brushG = undefined;
+    if (onBrush) {
+        brush = d3
+            .brush()
+            .extent([[0, 0], [innerWidth, innerHeight]])
+            .on("brush end", b => {
+                if (
+                    d3.event.sourceEvent &&
+                    d3.event.sourceEvent.type === "zoom"
+                )
+                    return; // ignore brush-by-zoom
+                if (d3.event.selection) {
+                    var s = d3.event.selection.map(d => mapboxUnProject(d));
+                    onBrush(s);
+                }
+                else onBrush(null)
+            });
+        brushG = svg
+            .append("g")
+            .attr("class", "brush")
+            .call(brush);
     }
 
     function setTweets(tweets) {

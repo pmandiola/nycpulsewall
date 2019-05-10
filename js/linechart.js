@@ -95,7 +95,7 @@ function LineChart(id, dim, grp, width = 300, height = 300, onBrush, scale) {
     function update(data, selection) {
         if (prevInfo !== data) {
             xScale.domain([group.all()[0].key, group.all()[group.size()-1].key])
-            yScale.domain([0, group.top(1)[0].value]);
+            yScale.domain([0, Math.max(group.top(1)[0].value, 5)]);
 
             path.datum(group.all())
                 .attr("d", area);

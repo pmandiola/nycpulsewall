@@ -11,7 +11,7 @@ from geventwebsocket.handler import WebSocketHandler
 from gevent import pywsgi
 
 import tweepy
-from textblob import TextBlob
+from textblob import TextBlob, Word
 
 from gensim.utils import simple_preprocess
 import spacy
@@ -67,6 +67,7 @@ def process_coordinates(tweet, bbox):
         (tweet['place']['place_type'] == 'neighborhood'):
 
         coords = random_point_in_box(shape(tweet['place']['bounding_box']))
+        tweet['coords_source'] = 'Place'
 
     elif (tweet['place']['place_type'] == 'city') & \
             (tweet['place']['name'] in boro_list):
@@ -114,7 +115,7 @@ def get_lemma(tweet):
     clean_text = [word for word in clean_text if word not in stop_words]
 
     # Parse the sentence using the loaded 'en' model object `nlp`. Extract the lemma for each token and join
-    clean_text = next(nlp.pipe([' '.join(clean_text)]))
+    clean_text = nlp(' '.join(clean_text))
     clean_text = {token.lemma_ for token in clean_text if token.pos_ in allowed_postags}
     
     #Remove stop words again
@@ -125,15 +126,20 @@ def get_lemma(tweet):
 
 class NYCStreamListener(tweepy.StreamListener):
     def __init__(self, locations):
+
         self.locations = locations
         self.bbox = Polygon([(locations[0], locations[1]),
                              (locations[0], locations[3]),
                              (locations[2], locations[3]),
                              (locations[2], locations[1])
                              ])
+
         self.retry_attempt = 0
         self.sockets = []
+
         self.date_fmt = '%a %b %d %H:%M:%S %z %Y'
+        self.reload_spacy = True
+
         auth = tweepy.OAuthHandler(TWITTER_KEY, TWITTER_SECRET)
         auth.set_access_token(TWITTER_TOKEN, TWITTER_TOKEN_SECRET)
         self.api = tweepy.API(auth)
@@ -191,6 +197,7 @@ class NYCStreamListener(tweepy.StreamListener):
             return True
 
         if (decoded['coords_source']):
+
             full_text = decoded['text'] if not decoded['truncated'] else decoded['extended_tweet']['full_text']
 
             try:
@@ -273,12 +280,15 @@ class NYCStreamListener(tweepy.StreamListener):
             except Exception as e:
                 logging.warning('Save file error: ' + str(e), exc_info=True)
                 return True
-        else:
-            if decoded['place']:
-                print('DISCARDED: {} out of bounding box'.format(
-                        decoded['place']['full_name']))
-            else:
-                print('DISCARDED: place is empty')
+
+            # Reload spacy once a day to avoid memory issue
+            if self.reload_spacy and (datetime.now(timezone('US/Eastern')).hour == 3):
+                print("Reloading spacy!")
+                nlp = spacy.load('en', disable=['parser', 'ner'])
+                self.reload_spacy = False
+            elif (not self.reload_spacy) and (datetime.now(timezone('US/Eastern')).hour == 0):
+                self.reload_spacy = True
+
         return True
 
     def on_connect(self):
@@ -347,7 +357,7 @@ if __name__ == '__main__':
                     'easy', 'easily', 'lot', 'lack', 'make', 'want',
                     'seem', 'run', 'need', 'even', 'right', 'line',
                     'even', 'also', 'may', 'take', 'come',
-                    'new', 'york', 'amp', 'ny'])
+                    'new', 'york', 'ny', 'nyc', 'amp'])
 
     # Load spacy en lang
     nlp = spacy.load('en', disable=['parser', 'ner'])

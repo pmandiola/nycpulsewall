@@ -6,13 +6,21 @@ function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
     
     let selected = null;
 
-    const margin = {top: 10, right: 10, bottom: 20, left: 10},
-          bodyHeight = height -margin.top - margin.bottom,
+    const margin = {top: 0, right: 10, bottom: 20, left: 10},
+          bodyHeight = height - margin.top - margin.bottom,
           bodyWidth = width - margin.left - margin.right
 
     const container = d3.select(`#${id}`)
             .attr("width", width)
             .attr("height", height)
+            .on('click', function(){
+                if (!d3.select(d3.event.target).classed('clickable') && selected){
+                    selected = null
+                    dimension.filter(null)
+                    bars_container.selectAll('rect')
+                        .attr('fill','#dce1e5')
+                }
+            })
 
     const xScale = d3.scaleLinear()
             .range([0,bodyWidth])
@@ -21,7 +29,6 @@ function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
             .range([0, bodyHeight])
             .domain(group.top(topN).map(a=>a.key))
             .padding(0.2)
-
 
     const body = container.append('g')
             .style("transform",
@@ -60,12 +67,14 @@ function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
             })
         
     const bars = bars_container.append('rect')
-            .attr('height', yScale.bandwidth())
-            .attr('y',(d)=>yScale(d.key))
-            .attr('width',d=>xScale(d.value))
-            .attr("fill", "#dce1e5")
+        .classed('clickable', true)
+        .attr('height', yScale.bandwidth())
+        .attr('y',(d)=>yScale(d.key))
+        .attr('width',d=>xScale(d.value))
+        .attr("fill", "#dce1e5")
 
     const texts = bars_container.append('text')
+        .classed('clickable', true)
         .text(d=>d.key)
         .attr('y',d => yScale(d.key)+yScale.bandwidth()/2)
         .attr('x', 5)

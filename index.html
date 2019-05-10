@@ -34,49 +34,44 @@
 <script src="https://d3js.org/d3.v5.min.js"></script>
 <script src="https://d3js.org/d3-time.v1.min.js"></script>
 <script src="https://d3js.org/d3-time-format.v2.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js"></script>
 <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.54.0/mapbox-gl.js'></script>
 <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.54.0/mapbox-gl.css' rel='stylesheet' />
-<!-- add geocoder -->
-<script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.0.0/mapbox-gl-geocoder.min.js'></script>
-<link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.0.0/mapbox-gl-geocoder.css' type='text/css' />
-
 <script src="js/heatmap.js"></script>
 <script src="js/crossfilter.min.js"></script>
 <script src="js/linechart.js"></script>
 <script src="js/barchart.js"></script>
 <script src="js/topicchart.js"></script>
-<script src="js/wordcloud.js"></script>
 
 <body>
 <div class="mainView">
   <div>
-    <div id='map' style='width:600px; height: 600px;'></div>
+    <div id='map'></div>
     <div><svg id="timeline"></svg></div>
   </div>
   <div>
-    <div><svg id='topicView' width='300' height='600'></svg></div>
-    <div><svg id="timeofday"></svg></div>
+    <div style='display:flex;'>
+      <div><svg id='topicView'></svg></div>
+      <div><svg id='userView'></svg></div>
+      <div><svg id = 'wordView'></svg></div>
+    </div>
+    <div style='display:flex;'>
+      <div><svg id="timeofday"></svg></div>
+      <div><svg id="sentiment"></svg></div>
+    </div>
   </div>
-  <div>
-    <div><svg id='userView' width='300' height='600'></svg></div>
-    <div><svg id="sentiment"></svg></div>
-  </div>
-  <div>
-    <div><svg id = 'wordView'></svg></div>
-    <div><svg id = 'tweetsinfo'></svg><div>
-  </div>
+  <div><svg id = 'tweetsinfo'></svg></div>
 </div>
 </body>
 
 <script>
 
   let store = {}
+  let url = "twts.pmandiola.com"
 
   function startWebSocket(){
 
     //websocket
-    let ws = new WebSocket("ws://twts.pmandiola.com:10001")
+    let ws = new WebSocket(`ws://${url}:10001`)
 
     ws.onopen = function(e) {
 
@@ -95,7 +90,7 @@
 
       var parseTime = d3.timeParse('%a %b %d %H:%M:%S %Z %Y');
       newTweet.created_at = parseTime(newTweet.created_at)
-      if (newTweet.coords_source == 'Origin'){
+      if (newTweet.coords_source != 'Randomized'){
 
         newTweet.geojson = {
           "type": "Feature",
@@ -128,7 +123,7 @@
 
     for (i = 0; i < days + 1; i++) {
       var today = new Date();
-      files.push("http://twts.pmandiola.com:90/tweets-filtered_" + formatDate(today.setDate(today.getDate() - i)) + ".csv")
+      files.push(`http://${url}:90/tweets-filtered_` + formatDate(today.setDate(today.getDate() - i)) + ".csv")
     }
 
     const results = await Promise.all(files.map(f => d3.csv(f).catch(e => console.log(e.message))));
@@ -145,7 +140,7 @@
       d.latitude = parseFloat(d.latitude)
       d.longitude = parseFloat(d.longitude)
 
-      if (d.coords_source == 'Origin'){
+      if (d.coords_source != 'Randomized'){
         d.geojson = {
                   "type": "Feature",
                   "geometry": {
@@ -183,25 +178,37 @@
           tweetsGroupByUserMentions = tweetsByUserMentions.group(),
 
           tweetsByWords = store.tweets.dimension(d => d.lemma, true),
-          tweetsGroupByWords = tweetsByWords.group()
+          tweetsGroupByWords = tweetsByWords.group(),
 
+          tweetsByLongitude = store.tweets.dimension(d => d.longitude),
+          tweetsByLatitude = store.tweets.dimension(d => d.latitude)
 
-    const timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 600, 150,
+    const timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 550, 150,
                 d => {
                   tweetsByTime.filter(d);
                 }, d3.scaleTime()),
-          timeofday = LineChart("timeofday", tweetsByHour, tweetsGroupByHour, 300, 150,
+          timeofday = LineChart("timeofday", tweetsByHour, tweetsGroupByHour, 330, 150,
                 d => {
                   tweetsByHour.filter(d);
                 }, d3.scaleLinear()),
-          sentiment = BarChart("sentiment", tweetsByPolarity, tweetsGroupByPolarity, 300, 150,
+          sentiment = BarChart("sentiment", tweetsByPolarity, tweetsGroupByPolarity, 330, 150,
                 d => {
                   tweetsByPolarity.filter(d);
                 }),
-          topicView = TopicChart('topicView', tweetsByHashtag, tweetsGroupByHashtag, 300, 600, 20), 
-          userView = TopicChart('userView',tweetsByUserMentions,tweetsGroupByUserMentions,300,600, 20),
-          wordView = TopicChart("wordView", tweetsByWords, tweetsGroupByWords, 300, 600, 20),
-          heatmap = HeatMap('map', allTweets.filter(d => d.coords_source == 'Origin'))
+          topicView = TopicChart('topicView', tweetsByHashtag, tweetsGroupByHashtag, 220, 650, 20), 
+          userView = TopicChart('userView',tweetsByUserMentions,tweetsGroupByUserMentions,220,650, 20),
+          wordView = TopicChart("wordView", tweetsByWords, tweetsGroupByWords, 220, 650, 20),
+          heatmap = HeatMap('map', allTweets.filter(d => d.coords_source != 'Randomized'), 550, 650,
+                d => {
+                  if (Array.isArray(d)){
+                    tweetsByLongitude.filter([d[0][0],d[1][0]]);
+                    tweetsByLatitude.filter([d[1][1],d[0][1]]);
+                  }
+                  else {
+                    tweetsByLongitude.filter(null)
+                    tweetsByLatitude.filter(null)
+                  }
+                })
 
     store.tweets.onChange(eventType => {
 
@@ -215,7 +222,7 @@
       }
       else {
 
-        heatmap(tweets.filter(d => d.coords_source == 'Origin'))
+        heatmap(store.tweets.allFiltered([tweetsByLongitude,tweetsByLatitude]).filter(d => d.coords_source != 'Randomized'))
       }
 
       timeline(tweets)

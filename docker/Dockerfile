@@ -1,7 +1,7 @@
 FROM python:3.6
 
 #Install nginx & cron
-RUN apt-get update && apt-get -y install nginx cron
+RUN apt-get update && apt-get -y install nginx
 
 #Install python pakages
 RUN pip install tweepy \
@@ -20,8 +20,6 @@ RUN python -m nltk.downloader stopwords && \
 #Add files
 ADD tweepy-streaming.py /
 ADD nyc-zoomed-processed.geojson /
-ADD save-tweet-files.sh /
-ADD tweets-crontab /etc/cron.d/
 
 #Create directory for data
 RUN mkdir /data
@@ -29,9 +27,6 @@ RUN mkdir /data
 # Change nginx configuration
 RUN rm -v /etc/nginx/nginx.conf
 ADD nginx.conf /etc/nginx/
-
-# Apply cron job
-RUN crontab /etc/cron.d/tweets-crontab
 
 #Open ports
 ENV PORT 10001

@@ -69,6 +69,8 @@ function LineChart(id, dim, grp, width = 300, height = 300, onBrush, scale) {
             .brushX()
             .extent([[0, 0], [innerWidth, innerHeight]])
             .on("brush end", b => {
+                if (!d3.event.sourceEvent) return;
+
                 if (
                     d3.event.sourceEvent &&
                     d3.event.sourceEvent.type === "zoom"
@@ -92,7 +94,7 @@ function LineChart(id, dim, grp, width = 300, height = 300, onBrush, scale) {
      */
     let prevInfo = undefined;
 
-    function update(data, selection) {
+    function update(data, clear) {
         if (prevInfo !== data) {
             xScale.domain([group.all()[0].key, group.all()[group.size()-1].key])
             yScale.domain([0, Math.max(group.top(1)[0].value, 5)]);
@@ -104,8 +106,8 @@ function LineChart(id, dim, grp, width = 300, height = 300, onBrush, scale) {
             yAxisView.call(yAxis);
             prevInfo = data;
 
-            if (brushG && selection) {
-                brushG.call(brush.move, selection.map(xScale, xScale));
+            if (brushG && clear) {
+                brushG.call(brush.move, null);
             }
         }
     }

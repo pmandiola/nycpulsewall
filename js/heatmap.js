@@ -45,6 +45,10 @@ function HeatMap(id, twts, width = 600, height = 600, onBrush) {
     var geojson;
     var lock = false;
 
+    function getTweetsLenght() {
+        return geojson.features.length
+    }
+
     map.on('load', function() {
         // Add a geojson point source.
         // Heatmap layers also work with a vector tile source.
@@ -56,9 +60,30 @@ function HeatMap(id, twts, width = 600, height = 600, onBrush) {
             type: "heatmap",
             source: "tweets",
             paint: {
+                // 'heatmap-radius': [
+                //     "interpolate",
+                //     ["linear"],
+                //     ["number", getTweetsLenght()],
+                //     1000, 30,
+                //     10000, 15
+                //     ],
+                // 'heatmap-intensity': [
+                //     "interpolate",
+                //     ["linear"],
+                //     ["number", getTweetsLenght()],
+                //     1000, 1,
+                //     10000, 0.2
+                //     ],
+                // 'heatmap-weight': [
+                //     "interpolate",
+                //     ["linear"],
+                //     ["number", getTweetsLenght()],
+                //     1000, 20,
+                //     10000, 1
+                //     ],
                 'heatmap-radius': 15,
+                'heatmap-intensity': 0.2,
                 'heatmap-opacity': 0.8,
-                'heatmap-intensity': 0.3,
                 'heatmap-color': [
                     "interpolate",
                     ["linear"],
@@ -100,6 +125,8 @@ function HeatMap(id, twts, width = 600, height = 600, onBrush) {
             .brush()
             .extent([[0, 0], [innerWidth, innerHeight]])
             .on("brush end", b => {
+                if (!d3.event.sourceEvent) return;
+
                 if (
                     d3.event.sourceEvent &&
                     d3.event.sourceEvent.type === "zoom"
@@ -158,13 +185,17 @@ function HeatMap(id, twts, width = 600, height = 600, onBrush) {
      *  Update Function
      */
 
-    function update(data) {
+    function update(data, clear) {
         if (Array.isArray(data)) {
             
             setTweets(data)
         }
         else {
             addTweet(data)
+        }
+
+        if (brushG && clear) {
+            brushG.call(brush.move, null);
         }
     }
     return update;

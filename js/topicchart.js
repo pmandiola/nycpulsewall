@@ -93,8 +93,12 @@ function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
      *  Update Function
      */
     let prevInfo = undefined;
-    function update(data) {
+    function update(data, clear) {
         if (prevInfo !== data) {
+            if (clear) {
+                selected = null;
+            }
+
             xScale.domain([0,Math.max(group.top(1)[0].value, 5)])
             yScale.domain(group.top(topN).map(a=>a.key))
 
@@ -113,6 +117,7 @@ function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
 
             xAxisView.call(xAxis);
             prevInfo = data;
+
         }
     }
 

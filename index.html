@@ -59,7 +59,8 @@
       <div><svg id="sentiment"></svg></div>
     </div>
   </div>
-  <div><svg id = 'tweetsinfo'></svg></div>
+  <div><svg id ="tweetsinfo"></svg></div>
+  <div><svg id="generalinfo"></svg></div>
 </div>
 </body>
 
@@ -113,12 +114,35 @@
     let formatDate = d3.timeFormat("%Y-%m-%d");
     let files = []
     let days = 3
+    let clear = false
+    let reseting = false
+
+    let n_bars = 20
+    let selected = 0
+    let iter_views = ['topicView','userView','wordView']
+    let curr_view = 0
 
     function removeOldTweets(){
 
       today = new Date();
       limit = today.setDate(today.getDate() - days)
       store.tweets.remove(d => d.created_at < limit)
+    }
+
+    function selectNext(){
+      selected += 1
+      view = iter_views[curr_view]
+
+      if (selected > n_bars) {
+
+        d3.select(`#${view}`).dispatch('click')
+        selected = 0
+        curr_view = curr_view == iter_views.length - 1 ? 0 : curr_view + 1
+      }
+      else {
+
+        d3.select(`#${view}`).select("g").select(`g:nth-child(${selected})`).dispatch('click')
+      }
     }
 
     for (i = 0; i < days + 1; i++) {
@@ -152,6 +176,7 @@
     })
 
     store.tweets = crossfilter(twitterData)
+    store.dimensions = []
     // Remove old tweets
     removeOldTweets()
 
@@ -183,6 +208,15 @@
           tweetsByLongitude = store.tweets.dimension(d => d.longitude),
           tweetsByLatitude = store.tweets.dimension(d => d.latitude)
 
+    store.dimensions.push(tweetsByTime)
+    store.dimensions.push(tweetsByHour)
+    store.dimensions.push(tweetsByPolarity)
+    store.dimensions.push(tweetsByHashtag)
+    store.dimensions.push(tweetsByUserMentions)
+    store.dimensions.push(tweetsByWords)
+    store.dimensions.push(tweetsByLongitude)
+    store.dimensions.push(tweetsByLatitude)
+
     const timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 550, 150,
                 d => {
                   tweetsByTime.filter(d);
@@ -195,9 +229,9 @@
                 d => {
                   tweetsByPolarity.filter(d);
                 }),
-          topicView = TopicChart('topicView', tweetsByHashtag, tweetsGroupByHashtag, 220, 650, 20), 
-          userView = TopicChart('userView',tweetsByUserMentions,tweetsGroupByUserMentions,220,650, 20),
-          wordView = TopicChart("wordView", tweetsByWords, tweetsGroupByWords, 220, 650, 20),
+          topicView = TopicChart('topicView', tweetsByHashtag, tweetsGroupByHashtag, 220, 650, n_bars), 
+          userView = TopicChart('userView',tweetsByUserMentions,tweetsGroupByUserMentions,220,650, n_bars),
+          wordView = TopicChart("wordView", tweetsByWords, tweetsGroupByWords, 220, 650, n_bars),
           heatmap = HeatMap('map', allTweets.filter(d => d.coords_source != 'Randomized'), 550, 650,
                 d => {
                   if (Array.isArray(d)){
@@ -212,25 +246,29 @@
 
     store.tweets.onChange(eventType => {
 
+      if (reseting) return;
+
       const tweets = store.tweets.allFiltered();
 
       if (eventType == 'dataAdded' && store.tweets.isElementFiltered(store.tweets.size()-1) ){
 
         newTweet = tweets.slice(-1)[0]
 
-        heatmap(newTweet);
+        heatmap(newTweet, clear);
       }
       else {
 
-        heatmap(store.tweets.allFiltered([tweetsByLongitude,tweetsByLatitude]).filter(d => d.coords_source != 'Randomized'))
+        heatmap(store.tweets.allFiltered([tweetsByLongitude,tweetsByLatitude]).filter(d => d.coords_source != 'Randomized'), clear)
       }
 
-      timeline(tweets)
-      timeofday(tweets)
-      sentiment(tweets)
-      topicView(tweets)
-      userView(tweets)
-      wordView(tweets)
+      timeline(tweets, clear)
+      timeofday(tweets, clear)
+      sentiment(tweets, clear)
+      topicView(tweets, clear)
+      userView(tweets, clear)
+      wordView(tweets, clear)
+
+      clear = false
 
     })
 
@@ -238,6 +276,32 @@
 
     // Remove old tweets every 15 minutes
     setInterval(removeOldTweets, 1000*60*15)
+    
+    // Automatically go through hashtags, user_mentions and topics
+    let interactionTimeout
+    let interactionInterval
+
+    function clearAllFilters(){
+      reseting = true
+      store.dimensions.forEach(d => d.filter(null))
+      reseting = false
+      clear = true
+    }
+
+    function startInteractionInterval() {
+      console.log("Start auto interaction")
+      clearAllFilters()
+      interactionInterval = setInterval(selectNext, 1000*10)
+    }
+
+    d3.select('body').on('click', function() {
+      clearTimeout(interactionTimeout)
+      clearInterval(interactionInterval)
+
+      interactionTimeout = setTimeout(startInteractionInterval, 1000*60*3)
+    })
+
+    interactionTimeout = setTimeout(startInteractionInterval, 1000*60*3)
   })();
 
 </script>

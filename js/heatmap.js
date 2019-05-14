@@ -162,11 +162,12 @@ function HeatMap(id, twts, width = 600, height = 600, onBrush) {
         }
         lock = false
     }
+    
     setTweets(twts)
 
     function addTweet(tweet) {
 
-        if (!lock && tweet.coords_source == 'Origin') {
+        if (!lock && tweet.coords_source != 'Randomized') {
             lock = true
 
             geojson.features.push(tweet.geojson)

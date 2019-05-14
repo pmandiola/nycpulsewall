@@ -1,10 +1,9 @@
-function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
+function BarChart(id, title="Title", grp, width = 300, height = 300, onBrush) {
     
     /**
      *  Data
      */
-    const dimension = dim,
-          group = grp;
+    const group = grp;
 
     /**
      *  Config
@@ -62,6 +61,15 @@ function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
     const yAxisView = body.append("g").attr("class", "axis axis--y");
     xAxisView.call(xAxis);
     yAxisView.call(yAxis);
+
+    svg.append("text")
+    .attr("x", margin.left + 10)             
+    .attr("y", margin.top)
+    .attr("text-anchor", "start")
+    .attr('alignment-baseline', 'baseline')
+    .style("font-size", "12px") 
+    .style("font-weight", "bold")  
+    .text(title);
     
     let brush = undefined;
     let brushG = undefined;

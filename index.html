@@ -217,21 +217,21 @@
     store.dimensions.push(tweetsByLongitude)
     store.dimensions.push(tweetsByLatitude)
 
-    const timeline = LineChart("timeline", tweetsByTime, tweetsGroupByTime, 550, 150,
+    const timeline = LineChart("timeline", "Frequency timeline", tweetsGroupByTime, 550, 150,
                 d => {
                   tweetsByTime.filter(d);
                 }, d3.scaleTime()),
-          timeofday = LineChart("timeofday", tweetsByHour, tweetsGroupByHour, 330, 150,
+          timeofday = LineChart("timeofday", "Hour of day", tweetsGroupByHour, 330, 150,
                 d => {
                   tweetsByHour.filter(d);
                 }, d3.scaleLinear()),
-          sentiment = BarChart("sentiment", tweetsByPolarity, tweetsGroupByPolarity, 330, 150,
+          sentiment = BarChart("sentiment", "Sentiment polarity", tweetsGroupByPolarity, 330, 150,
                 d => {
                   tweetsByPolarity.filter(d);
                 }),
-          topicView = TopicChart('topicView', tweetsByHashtag, tweetsGroupByHashtag, 220, 650, n_bars), 
-          userView = TopicChart('userView',tweetsByUserMentions,tweetsGroupByUserMentions,220,650, n_bars),
-          wordView = TopicChart("wordView", tweetsByWords, tweetsGroupByWords, 220, 650, n_bars),
+          topicView = TopicChart('topicView', "Hashtags", tweetsByHashtag, tweetsGroupByHashtag, 220, 650, n_bars), 
+          userView = TopicChart('userView', "User mentions", tweetsByUserMentions,tweetsGroupByUserMentions,220,650, n_bars),
+          wordView = TopicChart("wordView", "Words", tweetsByWords, tweetsGroupByWords, 220, 650, n_bars),
           heatmap = HeatMap('map', allTweets.filter(d => d.coords_source != 'Randomized'), 550, 650,
                 d => {
                   if (Array.isArray(d)){

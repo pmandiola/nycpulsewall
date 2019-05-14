@@ -1,10 +1,9 @@
-function LineChart(id, dim, grp, width = 300, height = 300, onBrush, scale) {
+function LineChart(id, title="Title", grp, width = 300, height = 300, onBrush, scale) {
     
     /**
      *  Data
      */
-    const dimension = dim,
-          group = grp;
+    const group = grp;
 
     /**
      *  Config
@@ -61,6 +60,15 @@ function LineChart(id, dim, grp, width = 300, height = 300, onBrush, scale) {
 
     xAxisView.call(xAxis);
     yAxisView.call(yAxis);
+
+    svg.append("text")
+        .attr("x", margin.left + 10)             
+        .attr("y", margin.top)
+        .attr("text-anchor", "start")
+        .attr('alignment-baseline', 'baseline')
+        .style("font-size", "12px") 
+        .style("font-weight", "bold")  
+        .text(title);
 
     let brush = undefined;
     let brushG = undefined;

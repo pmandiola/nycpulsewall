@@ -1,4 +1,4 @@
-function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
+function TopicChart(id, title="Title", dim, grp, width = 300, height = 600, n = 10) {
 
     const dimension = dim,
           group = grp,
@@ -6,11 +6,11 @@ function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
     
     let selected = null;
 
-    const margin = {top: 0, right: 10, bottom: 20, left: 10},
+    const margin = {top: 20, right: 20, bottom: 20, left: 20},
           bodyHeight = height - margin.top - margin.bottom,
           bodyWidth = width - margin.left - margin.right
 
-    const container = d3.select(`#${id}`)
+    const svg = d3.select(`#${id}`)
             .attr("width", width)
             .attr("height", height)
             .on('click', function(){
@@ -30,7 +30,7 @@ function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
             .domain(group.top(topN).map(a=>a.key))
             .padding(0.2)
 
-    const body = container.append('g')
+    const body = svg.append('g')
             .style("transform",
                 `translate(${margin.left}px,${margin.top}px)`),
 
@@ -88,6 +88,15 @@ function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
                         `translate($(${margin.left}px,${height-margin.bottom}px)`)
                     .attr("transform", "translate(0," + bodyHeight + ")");
     xAxisView.call(xAxis)
+
+    svg.append("text")
+        .attr("x", margin.left)             
+        .attr("y", margin.top/2)
+        .attr("text-anchor", "start")
+        .attr('alignment-baseline', 'middle')
+        .style("font-size", "12px") 
+        .style("font-weight", "bold")  
+        .text(title);
 
     /**
      *  Update Function

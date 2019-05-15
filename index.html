@@ -19,6 +19,10 @@
       clip-path: url(#clip);
     }
 
+    svg, canvas{
+      border: solid 1px #000000;
+    }
+
     svg text {
       cursor: default;
       -webkit-user-select: none;
@@ -29,6 +33,7 @@
     svg text::selection {
         background: none;
     }
+
 </style>
 
 <script src="https://d3js.org/d3.v5.min.js"></script>
@@ -47,11 +52,16 @@
 <script src="js/barchart.js"></script>
 <script src="js/topicchart.js"></script>
 <script src="js/wordcloud.js"></script>
-<!-- add tweets info in progress -->
+<!-- add tweetsinfo and tweetscounts -->
 <script src='js/tweetsinfo.js'></script>
+<script src='js/tweetscounts.js'></script>
 
 <body>
 <div class="mainView">
+  <div>
+    <div><svg id = 'tweetsinfo'></svg></div>
+    <div><svg id = 'tweetsCount'></svg></div>
+  </div>
   <div>
     <div id='map' style='width:600px; height: 600px;'></div>
     <div><svg id="timeline"></svg></div>
@@ -66,7 +76,6 @@
   </div>
   <div>
     <div><svg id = 'wordView'></svg></div>
-    <div><svg id = 'tweetsinfo'></svg><div>
   </div>
 </div>
 </body>
@@ -225,8 +234,9 @@
       sentiment(tweets)
       topicView(tweets)
       userView(tweets)
-
-
+      wordView(tweets)
+      TweetsInfo('tweetsinfo',store.tweets,300,600)
+      TweetsCounts('tweetsCount',store.tweets,300,150)
     })
 
     startWebSocket()
@@ -234,5 +244,4 @@
     // Remove old tweets every 15 minutes
     setInterval(removeOldTweets, 1000*60*15)
   })();
-
 </script>

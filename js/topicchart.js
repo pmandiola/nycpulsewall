@@ -1,4 +1,4 @@
-function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
+function TopicChart(id, title="Title", dim, grp, width = 300, height = 600, n = 10) {
 
     const dimension = dim,
           group = grp,
@@ -6,13 +6,21 @@ function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
     
     let selected = null;
 
-    const margin = {top: 10, right: 10, bottom: 20, left: 10},
-          bodyHeight = height -margin.top - margin.bottom,
+    const margin = {top: 20, right: 20, bottom: 20, left: 20},
+          bodyHeight = height - margin.top - margin.bottom,
           bodyWidth = width - margin.left - margin.right
 
-    const container = d3.select(`#${id}`)
+    const svg = d3.select(`#${id}`)
             .attr("width", width)
             .attr("height", height)
+            .on('click', function(){
+                if (!d3.select(d3.event.target).classed('clickable') && selected){
+                    selected = null
+                    dimension.filter(null)
+                    bars_container.selectAll('rect')
+                        .attr('fill','#dce1e5')
+                }
+            })
 
     const xScale = d3.scaleLinear()
             .range([0,bodyWidth])
@@ -22,8 +30,7 @@ function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
             .domain(group.top(topN).map(a=>a.key))
             .padding(0.2)
 
-
-    const body = container.append('g')
+    const body = svg.append('g')
             .style("transform",
                 `translate(${margin.left}px,${margin.top}px)`),
 
@@ -60,12 +67,14 @@ function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
             })
         
     const bars = bars_container.append('rect')
-            .attr('height', yScale.bandwidth())
-            .attr('y',(d)=>yScale(d.key))
-            .attr('width',d=>xScale(d.value))
-            .attr("fill", "#dce1e5")
+        .classed('clickable', true)
+        .attr('height', yScale.bandwidth())
+        .attr('y',(d)=>yScale(d.key))
+        .attr('width',d=>xScale(d.value))
+        .attr("fill", "#dce1e5")
 
     const texts = bars_container.append('text')
+        .classed('clickable', true)
         .text(d=>d.key)
         .attr('y',d => yScale(d.key)+yScale.bandwidth()/2)
         .attr('x', 5)
@@ -80,12 +89,25 @@ function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
                     .attr("transform", "translate(0," + bodyHeight + ")");
     xAxisView.call(xAxis)
 
+    svg.append("text")
+        .attr("x", margin.left)             
+        .attr("y", margin.top/2)
+        .attr("text-anchor", "start")
+        .attr('alignment-baseline', 'middle')
+        .style("font-size", "12px") 
+        .style("font-weight", "bold")  
+        .text(title);
+
     /**
      *  Update Function
      */
     let prevInfo = undefined;
-    function update(data) {
+    function update(data, clear) {
         if (prevInfo !== data) {
+            if (clear) {
+                selected = null;
+            }
+
             xScale.domain([0,Math.max(group.top(1)[0].value, 5)])
             yScale.domain(group.top(topN).map(a=>a.key))
 
@@ -104,6 +126,7 @@ function TopicChart(id, dim, grp, width = 300, height = 600, n = 10) {
 
             xAxisView.call(xAxis);
             prevInfo = data;
+
         }
     }
 

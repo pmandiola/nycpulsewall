@@ -1,10 +1,9 @@
-function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
+function BarChart(id, title="Title", grp, width = 300, height = 300, onBrush) {
     
     /**
      *  Data
      */
-    const dimension = dim,
-          group = grp;
+    const group = grp;
 
     /**
      *  Config
@@ -62,6 +61,15 @@ function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
     const yAxisView = body.append("g").attr("class", "axis axis--y");
     xAxisView.call(xAxis);
     yAxisView.call(yAxis);
+
+    svg.append("text")
+    .attr("x", margin.left + 10)             
+    .attr("y", margin.top)
+    .attr("text-anchor", "start")
+    .attr('alignment-baseline', 'baseline')
+    .style("font-size", "12px") 
+    .style("font-weight", "bold")  
+    .text(title);
     
     let brush = undefined;
     let brushG = undefined;
@@ -70,6 +78,8 @@ function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
             .brushX()
             .extent([[0, 0], [innerWidth, innerHeight]])
             .on("brush end", b => {
+                if (!d3.event.sourceEvent) return;
+
                 if (
                     d3.event.sourceEvent &&
                     d3.event.sourceEvent.type === "zoom"
@@ -93,7 +103,7 @@ function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
      */
     let prevInfo = undefined;
 
-    function update(data, selection) {
+    function update(data, clear) {
         if (prevInfo !== data) {
             yScale.domain([0, Math.max(group.top(2)[1].value, 5)]);
 
@@ -104,8 +114,8 @@ function BarChart(id, dim, grp, width = 300, height = 300, onBrush) {
             yAxisView.call(yAxis);
             prevInfo = data;
 
-            if (brushG && selection) {
-                brushG.call(brush.move, selection.map(xScale, xScale));
+            if (brushG && clear) {
+                brushG.call(brush.move, null);
             }
         }
     }

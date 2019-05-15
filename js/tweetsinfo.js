@@ -3,7 +3,7 @@
  */
 
  /// in progress
-function TweetsInfo(id,data,width = 300, height = 300, n=5){
+function tweetsInfo(id,data,width = 300, height = 300, n=10){
 
     const margin = {top: 10, right: 10, bottom: 20, left: 10},
           bodyHeight = height -margin.top - margin.bottom,
@@ -23,10 +23,14 @@ function TweetsInfo(id,data,width = 300, height = 300, n=5){
 
 
     title = g.append('text')
-             .attr('font-size', 20)
-             .attr('y', 30)
-             .attr('x', 5)
+             .attr("x", margin.left + 10)             
+             .attr("y", margin.top)
+             .attr("text-anchor", "start")
+             .attr('alignment-baseline', 'baseline')
+             .style("font-size", "12px") 
+             .style("font-weight", "bold")
              .text('The Lastest 10 Tweets')
+
 
     function wrapText(text, maxChars) {
             var ret = [];
@@ -54,7 +58,7 @@ function TweetsInfo(id,data,width = 300, height = 300, n=5){
             if (currentLine) {
                 ret.push(currentLine.trim());
             }
-            return ret.join("<br>\n");
+            return ret.join("\n");
             
         }
 
@@ -76,7 +80,7 @@ function TweetsInfo(id,data,width = 300, height = 300, n=5){
         var text = g.append('text')
                     .style('fill-opacity',1)
                     .attr('font-size', 15)
-                    .attr("y",(i*100+100))
+                    .attr("y",(i*50+100))
                     .attr('x', 5)
                     .text(topTweets[i])
                     .transition(t)

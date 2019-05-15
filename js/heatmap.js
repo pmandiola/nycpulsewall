@@ -1,26 +1,29 @@
-function HeatMap(id, twts, width = 600, height = 600) {
+function HeatMap(id, twts, width = 600, height = 600, onBrush) {
 
     mapboxgl.accessToken = 'pk.eyJ1IjoicG1hbmRpb2xhYiIsImEiOiJjanIyNzZndWIwMDJnNDV1NGVyMDUxbzg2In0.RQeWOCc-u8MBvg9XR2r9EQ'
+
+    const container = d3.select(`#${id}`)
+        .attr("style", `width:${width}px; height: ${height}px;`)
 
     //Setup mapbox-gl map
     const map = new mapboxgl.Map({
       container: id, // container id
       style: 'mapbox://styles/mapbox/light-v9',
-      center: [-73.975, 40.73],
+      center: [-73.975, 40.733],
       zoom: 11.8,
       interactive: false
     })
 
 
     //add NavigationControl & Geocoder
-    map.addControl(new MapboxGeocoder({
-        accessToken:mapboxgl.accessToken,
-        mapboxgl:mapboxgl
-    }));
-    map.addControl(new mapboxgl.NavigationControl());
+    // map.addControl(new MapboxGeocoder({
+    //     accessToken:mapboxgl.accessToken,
+    //     mapboxgl:mapboxgl
+    // }));
+    // map.addControl(new mapboxgl.NavigationControl());
 
-    const container = map.getCanvasContainer()
-    const svg = d3.select(container).append("svg")
+    const body = d3.select(map.getCanvasContainer())
+    const svg = body.append("svg")
         .attr('width', '100%')
         .attr('height', '100%')
         .style('position', 'absolute')
@@ -32,10 +35,19 @@ function HeatMap(id, twts, width = 600, height = 600) {
     function mapboxProjection(lonlat) {
         var p = map.project(new mapboxgl.LngLat(lonlat[0], lonlat[1]))
         return [p.x, p.y];
-      }
+    }
+
+    function mapboxUnProject(xy) {
+        var lonlat = map.unproject(xy)
+        return [lonlat.lng, lonlat.lat];
+    }
 
     var geojson;
     var lock = false;
+
+    function getTweetsLenght() {
+        return geojson.features.length
+    }
 
     map.on('load', function() {
         // Add a geojson point source.
@@ -48,9 +60,30 @@ function HeatMap(id, twts, width = 600, height = 600) {
             type: "heatmap",
             source: "tweets",
             paint: {
+                // 'heatmap-radius': [
+                //     "interpolate",
+                //     ["linear"],
+                //     ["number", getTweetsLenght()],
+                //     1000, 30,
+                //     10000, 15
+                //     ],
+                // 'heatmap-intensity': [
+                //     "interpolate",
+                //     ["linear"],
+                //     ["number", getTweetsLenght()],
+                //     1000, 1,
+                //     10000, 0.2
+                //     ],
+                // 'heatmap-weight': [
+                //     "interpolate",
+                //     ["linear"],
+                //     ["number", getTweetsLenght()],
+                //     1000, 20,
+                //     10000, 1
+                //     ],
                 'heatmap-radius': 15,
+                'heatmap-intensity': 0.2,
                 'heatmap-opacity': 0.8,
-                'heatmap-intensity': 0.3,
                 'heatmap-color': [
                     "interpolate",
                     ["linear"],
@@ -85,6 +118,32 @@ function HeatMap(id, twts, width = 600, height = 600) {
             .remove()
     }
 
+    let brush = undefined;
+    let brushG = undefined;
+    if (onBrush) {
+        brush = d3
+            .brush()
+            .extent([[0, 0], [innerWidth, innerHeight]])
+            .on("brush end", b => {
+                if (!d3.event.sourceEvent) return;
+
+                if (
+                    d3.event.sourceEvent &&
+                    d3.event.sourceEvent.type === "zoom"
+                )
+                    return; // ignore brush-by-zoom
+                if (d3.event.selection) {
+                    var s = d3.event.selection.map(d => mapboxUnProject(d));
+                    onBrush(s);
+                }
+                else onBrush(null)
+            });
+        brushG = svg
+            .append("g")
+            .attr("class", "brush")
+            .call(brush);
+    }
+
     function setTweets(tweets) {
 
         if (!lock) {
@@ -103,11 +162,12 @@ function HeatMap(id, twts, width = 600, height = 600) {
         }
         lock = false
     }
+    
     setTweets(twts)
 
     function addTweet(tweet) {
 
-        if (!lock && tweet.coords_source == 'Origin') {
+        if (!lock && tweet.coords_source != 'Randomized') {
             lock = true
 
             geojson.features.push(tweet.geojson)
@@ -126,13 +186,17 @@ function HeatMap(id, twts, width = 600, height = 600) {
      *  Update Function
      */
 
-    function update(data) {
+    function update(data, clear) {
         if (Array.isArray(data)) {
             
             setTweets(data)
         }
         else {
             addTweet(data)
+        }
+
+        if (brushG && clear) {
+            brushG.call(brush.move, null);
         }
     }
     return update;

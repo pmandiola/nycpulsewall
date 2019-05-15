@@ -37,14 +37,12 @@
 <script src="https://d3js.org/d3-time-format.v2.min.js"></script>
 <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.54.0/mapbox-gl.js'></script>
 <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.54.0/mapbox-gl.css' rel='stylesheet' />
-<script src="js/heatmap.js"></script>
 <script src="js/crossfilter.min.js"></script>
+
+<script src="js/heatmap.js"></script>
 <script src="js/linechart.js"></script>
 <script src="js/barchart.js"></script>
 <script src="js/topicchart.js"></script>
-
-<script src="js/wordcloud.js"></script>
-<!-- add tweetsinfo and tweetscounts -->
 <script src='js/tweetsinfo.js'></script>
 <script src='js/generalinfo.js'></script>
 
@@ -251,7 +249,9 @@
                     tweetsByLongitude.filter(null)
                     tweetsByLatitude.filter(null)
                   }
-                })
+                }),
+          tweetsinfo = TweetsInfo('tweetsinfo', 'Last 10 tweets', allTweets, 400, 650),
+          generalinfo = GeneralInfo('generalinfo', 'Tweets Infomation', store.tweets, 400, 150)
 
     store.tweets.onChange(eventType => {
 
@@ -276,8 +276,8 @@
       topicView(tweets, clear)
       userView(tweets, clear)
       wordView(tweets, clear)
-      tweetsInfo('tweetsinfo',store.tweets,220,650)
-      generalInfo('generalinfo',store.tweets,220,150)
+      tweetsinfo(tweets)
+      generalinfo(store.tweets)
 
       clear = false
     })

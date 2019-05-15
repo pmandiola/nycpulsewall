@@ -3,7 +3,7 @@
  */
 
  /// in progress
-function generalInfo(id,data,width = 300, height = 300){
+function GeneralInfo(id, title="Title", data, width = 300, height = 300){
 
     const margin = {top: 10, right: 10, bottom: 20, left: 10},
           bodyHeight = height -margin.top - margin.bottom,
@@ -16,38 +16,39 @@ function generalInfo(id,data,width = 300, height = 300){
                           .style("transform",`translate(${margin.left}px,${margin.top}px)`)
 
 
-    const SelectTweetsCount = data.allFiltered().length,
-          TotalTweetsCount = data.all().length
-    // console.log(SelectTweetsCount)
-    console.log(TotalTweetsCount)
-
     var t = d3.transition()
               .duration(500)
 
 
     title = g.append('text')
-             .attr("x", margin.left + 10)             
+             .attr("x", margin.left)             
              .attr("y", margin.top)
              .attr("text-anchor", "start")
              .attr('alignment-baseline', 'baseline')
              .style("font-size", "12px") 
              .style("font-weight", "bold")
-             .text('Tweets Infomation')
+             .text(title)
 
 
-    text1 = g.append('text')
-               .attr('font-size', 20)
+    text_total = g.append('text')
+               .attr('font-size', "14px")
+               .attr('y', 40)
+               .attr('x', margin.left)
+               .text('Total Tweets: '+ data.all().length)
+
+    text_filtered = g.append('text')
+               .attr('font-size', "14px")
                .attr('y', 70)
-               .attr('x', 5)
-               .text('Total Tweets: '+ TotalTweetsCount)
-               .transition(t)
-               .remove()
-    text2 = g.append('text')
-               .attr('font-size', 20)
-               .attr('y', 100)
-               .attr('x', 5)
-               .text('Selected Tweets: '+ SelectTweetsCount)
-               .transition(t)
-               .remove()
-               
+               .attr('x', margin.left)
+               .text('Selected Tweets: '+ data.allFiltered().length)
+
+      /**
+     *  Update Function
+     */
+    function update(data) {
+            
+      text_total.text('Total Tweets: '+ data.all().length)
+      text_filtered.text('Selected Tweets: '+ data.allFiltered().length)
+    }
+    return update;
 }

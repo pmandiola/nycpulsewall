@@ -5,7 +5,7 @@
  /// in progress
 function TweetsInfo(id, title = "Title", tweets, width = 300, height = 300, n=10){
 
-    const margin = {top: 20, right: 20, bottom: 20, left: 20},
+    const margin = {top: 20, right: 20, bottom: 0, left: 20},
           bodyHeight = height -margin.top - margin.bottom,
           bodyWidth = width - margin.left - margin.right
 
@@ -25,7 +25,7 @@ function TweetsInfo(id, title = "Title", tweets, width = 300, height = 300, n=10
                 .enter().append("text")
                 .style('fill-opacity',1)
                 .attr('font-size', "14px")
-                .attr("y", d => yScale(d.id_str) + yScale.bandwidth()/2)
+                .attr("y", d => yScale(d.id_str) + 10)
                 .attr('alignment-baseline', 'middle')
                 .attr('x', 0)
                 .text(d => d.text)

@@ -75,6 +75,7 @@
 
   let store = {}
   let url = "twts.pmandiola.com"
+  let remove_hashtags = ['#newyork', '#nyc']
 
   function startWebSocket(){
 
@@ -108,6 +109,15 @@
               }
           }
       }
+
+      ht_array = newTweet.hashtags
+      remove_hashtags.forEach(function (h) {
+        var index = ht_array.indexOf(h);
+        if (index > -1) {
+          ht_array.splice(index, 1);
+        }
+      })
+      newTweet.hashtags = ht_array
 
       let coords_source = newTweet.coords_source +' ('+newTweet.borough+')'
       console.log(coords_source + '|' +newTweet.polarity + "|" + newTweet.text)
@@ -162,7 +172,17 @@
 
     twitterData = [].concat(...data)
     twitterData.forEach(d => {
-      d.hashtags = JSON.parse(d.hashtags.replace(/'/g, '"'))
+
+      ht_array = JSON.parse(d.hashtags.replace(/'/g, '"'))
+      remove_hashtags.forEach(function (h) {
+        var index = ht_array.indexOf(h);
+        if (index > -1) {
+          ht_array.splice(index, 1);
+        }
+      })
+
+      d.hashtags = ht_array
+
       d.user_mentions = JSON.parse(d.user_mentions.replace(/'/g, '"'))
       d.lemma = JSON.parse(d.lemma.replace(/'/g, '"'))
       var parseTime = d3.timeParse('%a %b %d %H:%M:%S %Z %Y');

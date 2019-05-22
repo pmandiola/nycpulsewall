@@ -170,37 +170,51 @@
     const results = await Promise.all(files.map(f => d3.csv(f).catch(e => console.log(e.message))));
     const data = results.filter(result => result);
 
+    badTweets = []
+
     twitterData = [].concat(...data)
-    twitterData.forEach(d => {
+    twitterData.forEach((d, i, arr) => {
 
-      ht_array = JSON.parse(d.hashtags.replace(/'/g, '"'))
-      remove_hashtags.forEach(function (h) {
-        var index = ht_array.indexOf(h);
-        if (index > -1) {
-          ht_array.splice(index, 1);
+      try {
+        ht_array = JSON.parse(d.hashtags.replace(/'/g, '"'))
+        remove_hashtags.forEach(function (h) {
+          var index = ht_array.indexOf(h);
+          if (index > -1) {
+            ht_array.splice(index, 1);
+          }
+        })
+
+        d.hashtags = ht_array
+
+        d.user_mentions = JSON.parse(d.user_mentions.replace(/'/g, '"'))
+        d.lemma = JSON.parse(d.lemma.replace(/'/g, '"'))
+        var parseTime = d3.timeParse('%a %b %d %H:%M:%S %Z %Y');
+        d.created_at = parseTime(d.created_at)
+        d.polarity = parseFloat(d.polarity)
+        d.latitude = parseFloat(d.latitude)
+        d.longitude = parseFloat(d.longitude)
+
+        if (d.coords_source != 'Randomized'){
+          d.geojson = {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [d.longitude, d.latitude]
+                        }
+                    }
         }
-      })
-
-      d.hashtags = ht_array
-
-      d.user_mentions = JSON.parse(d.user_mentions.replace(/'/g, '"'))
-      d.lemma = JSON.parse(d.lemma.replace(/'/g, '"'))
-      var parseTime = d3.timeParse('%a %b %d %H:%M:%S %Z %Y');
-      d.created_at = parseTime(d.created_at)
-      d.polarity = parseFloat(d.polarity)
-      d.latitude = parseFloat(d.latitude)
-      d.longitude = parseFloat(d.longitude)
-
-      if (d.coords_source != 'Randomized'){
-        d.geojson = {
-                  "type": "Feature",
-                  "geometry": {
-                      "type": "Point",
-                      "coordinates": [d.longitude, d.latitude]
-                      }
-                  }
+      }
+      catch (e) {
+        console.log(e)
+        console.log(d)
+        //Store index of tweet with wrong format to delete later
+        badTweets.push(i)
       }
     })
+
+    // Remove tweets with bad data
+    for (var i = badTweets.length -1; i >= 0; i--)
+      twitterData.splice(badTweets[i],1);
 
     store.tweets = crossfilter(twitterData)
     store.dimensions = []

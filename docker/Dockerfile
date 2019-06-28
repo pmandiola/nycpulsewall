@@ -1,6 +1,6 @@
 FROM python:3.6
 
-#Install nginx & cron
+#Install nginx
 RUN apt-get update && apt-get -y install nginx
 
 #Install python pakages

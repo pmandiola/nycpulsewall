@@ -10,7 +10,7 @@
       padding: 5px;
     }
 
-    .mainView {
+    #mainView {
       display: flex;
     }
 
@@ -37,7 +37,8 @@
 <script src="https://d3js.org/d3-time-format.v2.min.js"></script>
 <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.54.0/mapbox-gl.js'></script>
 <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.54.0/mapbox-gl.css' rel='stylesheet' />
-<script src="js/crossfilter.min.js"></script>
+<script src="https://unpkg.com/crossfilter2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/spin.js/2.3.2/spin.min.js"></script>
 
 <script src="js/heatmap.js"></script>
 <script src="js/linechart.js"></script>
@@ -48,7 +49,7 @@
 
 
 <body>
-<div class="mainView">
+<div id="mainView">
   <div>
     <div id='map'></div>
     <div><svg id="timeline"></svg></div>
@@ -139,6 +140,22 @@
     let iter_views = ['topicView','userView','wordView']
     let curr_view = 0
 
+        // loader settings
+    var opts = {
+      lines: 9, // The number of lines to draw
+      length: 9, // The length of each line
+      width: 5, // The line thickness
+      radius: 14, // The radius of the inner circle
+      color: 'steelBlue', // #rgb or #rrggbb or array of colors
+      speed: 1.9, // Rounds per second
+      trail: 40, // Afterglow percentage
+      className: 'spinner', // The CSS class to assign to the spinner
+    };
+
+    var target = document.getElementById('mainView');
+
+    var spinner = new Spinner(opts).spin(target);
+
     function removeOldTweets(){
 
       today = new Date();
@@ -167,8 +184,11 @@
       files.push(`http://${url}:90/tweets-filtered_` + formatDate(today.setDate(today.getDate() - i)) + ".csv")
     }
 
-    const results = await Promise.all(files.map(f => d3.csv(f).catch(e => console.log(e.message))));
-    const data = results.filter(result => result);
+    const data = await Promise.all(files.map(f => d3.csv(f).catch(e => console.log(e.message)))).then(function (results) {
+      spinner.stop()
+
+      return results.filter(result => result);
+    });
 
     badTweets = []
 

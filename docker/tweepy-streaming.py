@@ -1,17 +1,18 @@
 # Based on https://stackoverflow.com/a/27884633
 
-import os
-import logging
-
 import gevent
 import gevent.monkey
 gevent.monkey.patch_all()
+
+import os
+import logging
+import resource
 
 from geventwebsocket.handler import WebSocketHandler
 from gevent import pywsgi
 
 import tweepy
-from textblob import TextBlob, Word
+from textblob import TextBlob
 
 from gensim.utils import simple_preprocess
 import spacy
@@ -45,11 +46,11 @@ def random_point_in_box(box):
                  random.triangular(miny, maxy, center.y))
 
 
-def which_borough(point):
-    for boro in nyc_boroughs['features']:
-        if boro['geometry'].intersects(point):
-            return boro['properties']['boro_name']
-    return False
+# def which_borough(point):
+#     for boro in nyc_boroughs['features']:
+#         if boro['geometry'].intersects(point):
+#             return boro['properties']['boro_name']
+#     return False
 
 
 def process_coordinates(tweet, bbox):
@@ -57,6 +58,7 @@ def process_coordinates(tweet, bbox):
     boro_list = ['Manhattan', 'Brooklyn', 'Queens']
 
     tweet['coords_source'] = 'Randomized'
+    coords = False
 
     if tweet['coordinates']:
 
@@ -82,7 +84,7 @@ def process_coordinates(tweet, bbox):
         areas = [area for feature in nyc_boroughs['features'] for area in feature['areas']]
         coords = random_point_in_polygon(transforms, areas)
 
-    if bbox.contains(coords):
+    if coords and bbox.contains(coords):
         tweet['coordinates'] = mapping(coords)
     else:
         tweet['coords_source'] = False
@@ -90,7 +92,17 @@ def process_coordinates(tweet, bbox):
     return tweet
 
 
+def memory_check():
+    while True:
+        print('Memory check: {}'.format(
+            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0))
+        
+        gevent.sleep(30*60)
+
+
 def get_lemma(tweet):
+    global nlp
+    global allowed_postags
     
     text = tweet['text'] if not tweet['truncated'] else tweet['extended_tweet']['full_text']
     entities = tweet['entities'] if not tweet['truncated'] else tweet['extended_tweet']['entities']
@@ -112,7 +124,7 @@ def get_lemma(tweet):
     clean_text = simple_preprocess(clean_text)
     
     #Remove stop words
-    clean_text = [word for word in clean_text if word not in stop_words]
+    clean_text = {word for word in clean_text if word not in stop_words}
 
     # Parse the sentence using the loaded 'en' model object `nlp`. Extract the lemma for each token and join
     clean_text = nlp(' '.join(clean_text))
@@ -138,7 +150,6 @@ class NYCStreamListener(tweepy.StreamListener):
         self.sockets = []
 
         self.date_fmt = '%a %b %d %H:%M:%S %z %Y'
-        self.reload_spacy = True
 
         auth = tweepy.OAuthHandler(TWITTER_KEY, TWITTER_SECRET)
         auth.set_access_token(TWITTER_TOKEN, TWITTER_TOKEN_SECRET)
@@ -155,7 +166,6 @@ class NYCStreamListener(tweepy.StreamListener):
             self.sockets.remove(ws)
 
     def run(self):
-        print("Run")
         try:
             self.stream.filter(locations=self.locations)
         except Exception as e:
@@ -165,11 +175,9 @@ class NYCStreamListener(tweepy.StreamListener):
             self.start()
 
     def start(self):
-        print("Start")
         gevent.spawn(self.run)
 
     def stop(self):
-        print("Stop")
         self.stream.disconnect()
 
     def send(self, ws, data):
@@ -231,11 +239,10 @@ class NYCStreamListener(tweepy.StreamListener):
             try:
                 # Filter tweet data to send only what we need
                 filter_keys = ['created_at',
-                                 'id_str',
-                                 'polarity',
-                                 'borough',
-                                 'coords_source',
-                                 'lemma']
+                                'id_str',
+                                'polarity',
+                                'coords_source',
+                                'lemma']
 
                 smallTweet =  {key: decoded.get(key, None) for key in filter_keys}
 
@@ -258,16 +265,9 @@ class NYCStreamListener(tweepy.StreamListener):
                 return True
 
             try:
-                # Save full tweet to json file
-                # fileName = 'tweets_' + created_at.strftime('%Y-%m-%d') \
-                #              + '.json'
-                # with open('/data/' + fileName, 'a+') as tf:
-                #     json.dump(decoded, tf)
-                #     tf.write('\n')
-                
                 # Save filtered tweet to csv file
                 fileName = 'tweets-filtered_' + created_at.strftime('%Y-%m-%d') \
-                             + '.csv'
+                            + '.csv'
                 file_exists = os.path.isfile('/data/' + fileName)
                 with open('/data/' + fileName, 'a+') as tf:
                     w = csv.DictWriter(tf, fieldnames=smallTweet.keys())
@@ -280,15 +280,7 @@ class NYCStreamListener(tweepy.StreamListener):
             except Exception as e:
                 logging.warning('Save file error: ' + str(e), exc_info=True)
                 return True
-
-            # Reload spacy once a day to avoid memory issue
-            if self.reload_spacy and (datetime.now(timezone('US/Eastern')).hour == 3):
-                print("Reloading spacy!")
-                nlp = spacy.load('en', disable=['parser', 'ner'])
-                self.reload_spacy = False
-            elif (not self.reload_spacy) and (datetime.now(timezone('US/Eastern')).hour == 0):
-                self.reload_spacy = True
-
+            
         return True
 
     def on_connect(self):
@@ -364,6 +356,7 @@ if __name__ == '__main__':
     allowed_postags=['NOUN', 'ADJ', 'VERB', 'ADV']
     
     # Start server
+    print("Starting twitter stream listener")
     stream_listener = NYCStreamListener(locations=[-74.02, 40.68, -73.93, 40.78])
     server = pywsgi.WSGIServer(('', 10001), app, handler_class=WebSocketHandler)
     server.serve_forever()

@@ -1,1 +1,0 @@
-1 4 * * * /bin/bash /delete-old-files.sh
